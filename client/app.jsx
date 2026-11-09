@@ -15,6 +15,7 @@ export function Icon({ name, size = 20 }) {
     list: <><path d="M8 6h13M8 12h13M8 18h13M3 6h.1M3 12h.1M3 18h.1"/></>,
     volume: <><path d="m11 4-6 5H2v6h3l6 5ZM15 8a6 6 0 0 1 0 8m3-11a10 10 0 0 1 0 14"/></>,
     refresh: <><path d="M20 8a8 8 0 0 0-14-3L3 8m0-5v5h5M4 16a8 8 0 0 0 14 3l3-3m0 5v-5h-5"/></>,
+    calendar: <><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4m10-4v4M3 11h18m-13 5h3"/></>,
   };
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name] || paths.radio}</svg>;
 }
@@ -90,6 +91,14 @@ function RadioPage({ controller, state: s }) {
 }
 function LibraryPage({ controller, state: s }) {
   const [selected, setSelected] = useState(s.settings.selectedPlaylistIds), [qr, setQr] = useState(null), [message, setMessage] = useState(''), [busy, setBusy] = useState(false), [cookie, setCookie] = useState('');
+  const [daily, setDaily] = useState(null), [dailyError, setDailyError] = useState(''), [dailyLoading, setDailyLoading] = useState(false);
+  useEffect(() => {
+    let current = true; setDaily(null); setDailyError('');
+    if (!s.account) return;
+    setDailyLoading(true);
+    api('/recommendations/daily').then(data => { if (current) setDaily(data); }).catch(error => { if (current) setDailyError(error.message); }).finally(() => { if (current) setDailyLoading(false); });
+    return () => { current = false; };
+  }, [s.account?.userId]);
   useEffect(() => setSelected(s.settings.selectedPlaylistIds), [s.librarySyncedAt]);
   useEffect(() => {
     if (!qr) return; let disposed = false, timer;
@@ -111,6 +120,10 @@ function LibraryPage({ controller, state: s }) {
       {qr ? <><img className="ar-qr" src={qr.imageDataUrl} alt="网易云登录二维码"/><p>{message || '使用网易云音乐 App 扫码，并在手机上确认。'}</p></> : <><Icon name="radio" size={36}/><p>用网易云音乐 App 扫码登录</p><Button primary disabled={busy} onClick={() => run(async () => { setQr(await api('/login/qr', {})); setMessage(''); })}>连接网易云</Button></>}
       <details className="ar-details"><summary>使用已有登录 Cookie</summary><textarea aria-label="网易云 Cookie" value={cookie} onChange={e => setCookie(e.target.value)} placeholder="仅保存在本机"/><Button disabled={busy || !cookie} onClick={() => run(async () => { await api('/login/cookie', { cookie }); setCookie(''); await controller.refresh(); })}>验证并连接</Button></details>
     </div> : <>
+      <article className={'ar-daily' + (s.librarySource?.type === 'daily' ? ' chosen' : '')} aria-label="网易云每日推荐">
+        <div className="ar-daily-info"><span className="ar-daily-icon"><Icon name="calendar" size={25}/></span><div><strong>每日推荐</strong><p>{dailyLoading ? '正在读取今天的推荐…' : dailyError || (daily ? daily.count + ' 首 · ' + daily.date : '根据你的网易云听歌偏好推荐')}</p></div></div>
+        <div className="ar-daily-actions"><button className="ar-icon-button" aria-label="刷新每日推荐" disabled={busy || dailyLoading} onClick={() => run(async () => { setDailyLoading(true); setDailyError(''); try { setDaily(await api('/recommendations/daily?refresh')); } catch (error) { setDailyError(error.message); } finally { setDailyLoading(false); } })}><Icon name="refresh" size={17}/></button><Button primary disabled={busy || dailyLoading || !daily || !!dailyError} onClick={() => { controller.unlock(); run(() => controller.startFromDaily()); }}>从每日推荐开始今日电台</Button></div>
+      </article>
       <div className="ar-playlist-toolbar"><span>已选 {selected.length} 个歌单</span><Button primary disabled={busy || !selected.length} onClick={() => start(selected)}>{busy ? '正在准备…' : '从所选歌单开始今日电台'}</Button></div>
       <div className="ar-playlists">{s.playlists.map(p => <article className={'ar-playlist ' + (selected.includes(p.id) ? 'chosen' : '')} key={p.id}>
         <label><input type="checkbox" aria-label={'选择歌单 ' + p.name} checked={selected.includes(p.id)} onChange={() => setSelected(xs => xs.includes(p.id) ? xs.filter(x => x !== p.id) : [...xs, p.id])}/><Cover song={{ cover: p.cover }} small/><span><strong>{p.name}</strong><small>{p.trackCount} 首 · {p.creator}</small></span></label>

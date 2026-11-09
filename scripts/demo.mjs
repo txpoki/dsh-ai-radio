@@ -19,7 +19,8 @@ export function attachDemo(service, { seconds = 35, speechSeconds = Number(proce
     return JSON.stringify({opening:'听众朋友们，大家好！我是小鲸。这里是电台本地演示，音乐和语音均为合成测试音频。',songs:payload.songs.map((x,i)=>({id:x.id,intro:'刚刚的旋律先收进耳朵，接下来一起听《'+x.title+'》。这首也来自今天的演示歌单。',sourceIds:x.sources.slice(0,1).map(s=>s.id),joke:x.humorSlot?'小鲸今天准备了好多歌，连海浪都排着队来听啦。':''}))});
   };
   service.speech.prepare=async()=>{const id=randomUUID();service.speech.audio.set(id,{bytes:wav(speechSeconds,440),type:'audio/wav'});return{provider:'demo',url:'/dsh-ai-radio/speech/audio/'+id,duration:speechSeconds,measured:true};};
-  service.music.loadLibrary=async(ids)=>{service.store.state.settings.selectedPlaylistIds=ids;return{count:songs.length,failures:[]};};
+  service.music.loadLibrary=async(ids)=>{service.store.state.settings.selectedPlaylistIds=ids;service.store.state.library=songs;service.store.state.librarySource={type:'playlists'};return{count:songs.length,failures:[]};};
+  service.music.getDailyRecommendations=async()=>({date:new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Shanghai'}).format(new Date()),ownerId:'demo',songs:songs.slice(0,4),fetchedAt:Date.now()});
   service.music.syncPlaylists=async()=>service.store.state.playlists;
   service.music.logout=()=>{};
   const audio=new Map(songs.map((s,i)=>[s.id,wav(seconds,174+i*11)]));

@@ -18,6 +18,16 @@ test('cross-origin mutations and non-JSON forms are rejected',async()=>fixture(a
   assert.equal((await post(base,'/settings',{city:'南京'},{Origin:'https://evil.example'})).status,403);
   assert.equal((await fetch(base+'/settings',{method:'POST',headers:{'Content-Type':'text/plain'},body:'{}'})).status,415);
 }));
+test('daily recommendation metadata is read-only and can be explicitly loaded as the radio library',async()=>fixture(async({base,service})=>{
+  const before=service.store.state.library.length;
+  const daily=await(await fetch(base+'/recommendations/daily')).json();
+  assert.equal(daily.count,4);assert.equal(service.store.state.library.length,before);assert.equal(daily.songs,undefined);assert.equal(daily.ownerId,undefined);
+  const selected=[...service.store.state.settings.selectedPlaylistIds];
+  const result=await(await post(base,'/library',{source:'daily'})).json();
+  assert.equal(result.count,4);assert.equal(service.store.state.librarySource.type,'daily');assert.deepEqual(service.store.state.settings.selectedPlaylistIds,selected);
+  const bootstrap=await(await fetch(base+'/bootstrap')).json();assert.equal(bootstrap.libraryCount,4);assert.equal(bootstrap.librarySource.type,'daily');
+  const plan=await(await post(base,'/plan',{requestId:'daily-episode',opening:true})).json();assert.equal(plan.total,4);
+}));
 test('plan, speech prefetch and played acknowledgment form a complete radio pipeline',async()=>fixture(async({base,service})=>{
   const plan=await(await post(base,'/plan',{requestId:'end-to-end',opening:true})).json();assert.equal(plan.segments.length,4);
   const speech=plan.segments[0].speech;const prepared=await(await post(base,'/speech/prepare',{id:speech.id})).json();

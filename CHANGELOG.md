@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.3
+
+- Read the signed-in listener's NetEase daily song recommendations and expose a compact daily radio entry inside Playlists.
+- Reuse whole-episode research, narration preparation and continuous playback for the daily source. Preserve playlist selections when switching sources.
+- Cache by account and Shanghai calendar date, support manual refresh, and reload today's recommendations when starting a new day. Report expired login or an empty result explicitly; reject late responses after an account switch or logout.
+- Add daily-source API, cache, account isolation and real-browser start/switch/error coverage.
+
 ## 0.2.2
 
 - Pre-render the episode's narration, measure actual audio durations, and include song/voice cue times in the full script. Reuse synthesized audio from a bounded private disk cache across restarts.

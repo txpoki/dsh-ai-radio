@@ -24,6 +24,7 @@ jobs:
       - run: pnpm test:browser
       - run: pnpm test:startup
       - run: pnpm test:mix
+      - run: pnpm test:daily
       - uses: actions/upload-artifact@v4
         if: always()
         with:

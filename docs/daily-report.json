@@ -1,0 +1,8 @@
+{
+  "checks": [
+    "Daily recommendation card prepares and plays a complete four-song episode",
+    "Switching back to a playlist restores the ordinary playlist source and starts playback",
+    "A daily recommendation failure preserves usable playlist controls and a fitting mobile layout"
+  ],
+  "success": true
+}

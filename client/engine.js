@@ -65,13 +65,22 @@ export class RadioController {
   }
   async startFromPlaylists(ids) {
     this.unlock();
-    const same = JSON.stringify([...ids].sort()) === JSON.stringify([...(this.state.settings.selectedPlaylistIds || [])].sort());
+    const same = this.state.librarySource?.type !== 'daily' && JSON.stringify([...ids].sort()) === JSON.stringify([...(this.state.settings.selectedPlaylistIds || [])].sort());
     if (same && (this.programming || this.state.programmeStatus?.status === 'preparing')) {
       this.emit({ expanded: true, page: 'radio' }); return this.play();
     }
     await this.loadLibrary(ids);
     this.emit({ expanded: true, page: 'radio' });
     return this.play();
+  }
+  async loadDailyRecommendations() {
+    this.stop(); const result = await api('/library', { source: 'daily' }, 30000); await this.refresh();
+    this.emit({ notice: '已载入今天的 ' + result.count + ' 首网易云每日推荐' }); return result;
+  }
+  async startFromDaily() {
+    this.unlock();
+    if (this.state.librarySource?.type === 'daily' && (this.programming || this.state.programmeStatus?.status === 'preparing')) { this.emit({ expanded: true, page: 'radio' }); return this.play(); }
+    await this.loadDailyRecommendations(); this.emit({ expanded: true, page: 'radio' }); return this.play();
   }
   async ensureProgramme(query = '') {
     if (this.programming) return this.programming;
@@ -135,6 +144,10 @@ export class RadioController {
   async play(query = '') {
     this.unlock();
     if (!this.state.settings) return;
+    const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+    if (this.current < 0 && !this.programming && this.state.librarySource?.type === 'daily' && this.state.librarySource.date !== today) {
+      try { await this.loadDailyRecommendations(); } catch (error) { this.emit({ notice: error.message, expanded: true, page: 'library' }); return; }
+    }
     if (!this.state.libraryCount) { this.emit({ expanded: true, page: 'library', notice: '先登录网易云并选择歌单，就可以开台。' }); return; }
     if (!await this.acquire()) { this.emit({ notice: '电台正在另一个标签页播放，请先在那里暂停。' }); return; }
     this.running = true; clearTimeout(this.retryTimer);

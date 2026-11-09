@@ -2,6 +2,15 @@
 
 Checked on **2026-11-09**, Asia/Shanghai. These results distinguish real public-service probes from simulated account/audio tests.
 
+## 0.2.3 daily recommendations
+
+- **63 unit/API/lifecycle tests passed**. New cases cover the authenticated daily endpoint, current/legacy response normalization, Shanghai-date caching, explicit refresh, empty/expired-login responses, concurrent request sharing, and rejecting a late response after logout.
+- **Three daily-source browser checks passed**: a complete four-song synthetic recommendation episode reached actual HTMLAudio playback after its greeting and introduction; switching to a playlist restored the twelve-song fixture; a recommendation failure retained usable playlist controls and a fitting 430px mobile layout. Navigation remains the same three tabs. See [daily-report.json](daily-report.json) and [screenshot-library.png](screenshot-library.png).
+- Re-ran the existing **14 browser checks**, **two startup checks**, and **three long-narration mixing checks** successfully. Build, manifest/syntax and whitespace checks passed.
+- A live signed-in request to NetEase returned HTTP 200 and a nonempty recommendation list with song IDs, titles, artists, albums and durations. No personal track names, song IDs, account identifiers, Cookie or recommendation payload is included in this repository.
+- Installed 0.2.3 through DSH Desktop's plugin manager and restarted gracefully. The live bootstrap returned 0.2.3; the daily-recommendation route returned today's date and a nonzero count while retaining the existing selected library. This was a read-only recommendation check; a new live-account AI programme was not generated.
+- Confirmed the native Desktop Playlists page displays the current daily date/count and an enabled daily-radio start button. The existing playlist selection remains visible. Public screenshots use only the synthetic demo account.
+
 ## 0.2.2 continuous music scheduling
 
 - **56 unit/API/lifecycle tests passed**. Coverage includes measured speech duration, persistent audio reuse, independently scheduled music/voice cues, and recalibration of an existing script or changed voice without repeating editorial generation.
