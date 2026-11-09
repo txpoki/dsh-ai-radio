@@ -2,6 +2,15 @@
 
 Checked on **2026-11-09**, Asia/Shanghai. These results distinguish real public-service probes from simulated account/audio tests.
 
+## 0.2.4 voice identity and configuration
+
+- **67 unit/API/lifecycle tests passed**. Reproduced the prior behavior that cached Edge substitutes under Fish settings. The new code rejects that mismatch, reports a missing key before synthesis, preserves successful voice identity across cache restores, and never calls Edge as a substitute when Fish fails. Permanent authorization/quota errors do not retry every programme clip.
+- **Three new real-browser checks passed** with generated audio: changing services while an old request was held could not play that old voice; missing Fish credentials were visible in settings and preview while music continued; selecting the free natural voice restored narration within the same music session. See [voice-report.json](voice-report.json).
+- The existing **14 browser checks**, **two startup checks**, **three mixing checks**, and **three daily-source checks** also passed. Build and manifest/syntax checks passed.
+- Fish request authentication, `model: s2.1-pro-free` and `reference_id` match the [official endpoint documentation](https://docs.fish.audio/api-reference/endpoint/openapi-v1/text-to-speech). Fish synthesis and perceptual matching to a Studio voice were not tested with a personal Fish API key. HTTP failure cases use mock transport.
+- Installed 0.2.4 through the native DSH plugin manager and restarted gracefully. With the free Xiaoyi voice selected, the live preparation endpoint reported `provider: edge`, `voice: zh-CN-XiaoyiNeural`, and a measured **11.496-second** MP3. The audio endpoint returned HTTP 200, `audio/mpeg`, **137,952 bytes**. The Fish preset remains configured for later use.
+- The native Settings page showed the free Xiaoyi voice, and its preview was started using the actual Desktop control.
+
 ## 0.2.3 daily recommendations
 
 - **63 unit/API/lifecycle tests passed**. New cases cover the authenticated daily endpoint, current/legacy response normalization, Shanghai-date caching, explicit refresh, empty/expired-login responses, concurrent request sharing, and rejecting a late response after logout.

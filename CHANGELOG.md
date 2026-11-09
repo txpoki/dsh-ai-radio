@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.4
+
+- Never substitute a different voice when the selected Fish or compatible speech service is missing credentials or fails. Surface configuration, authentication, quota and voice errors while music continues.
+- Reject earlier Edge substitutes cached under Fish settings. Preserve provider and voice identity in successful audio metadata, and recalibrate episode timing when the speech contract or credential changes.
+- Cancel old narration and discard pending old voice cues when changing speech settings. Show missing-key guidance and the last used voice in Settings.
+- Keep the free natural girl voice and the sourced Blue Dafeiyu preset. Clarify how a Fish Studio Model ID and API key are used by the plugin.
+
 ## 0.2.3
 
 - Read the signed-in listener's NetEase daily song recommendations and expose a compact daily radio entry inside Playlists.

@@ -1,0 +1,8 @@
+{
+  "checks": [
+    "Changing the voice while an old preload is pending cannot play that old voice",
+    "A missing Fish key is visible in settings and preview, without a substitute voice or stopping music",
+    "Selecting the free natural voice restores narration during the same music session"
+  ],
+  "success": true
+}

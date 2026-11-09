@@ -26,7 +26,7 @@ export class RadioController {
     this.voiceAudio = new Audio(); this.voiceAudio.setAttribute('playsinline', ''); this.speechCache = new Map();
     this.bedAudio = new Audio(); this.bedAudio.loop = true; this.bedAudio.preload = 'auto'; this.bedAudio.setAttribute('playsinline', '');
     this.needsProgramme = true;
-    this.transitionGeneration = 0;
+    this.transitionGeneration = 0; this.voiceRevision = 0;
     this.timer = setInterval(() => this.tick(), 1000);
     this.commandTimer = setInterval(() => this.pollCommands(), 2000);
     this.online = () => { if (this.running && this.state.status === 'retrying') { clearTimeout(this.retryTimer); this.advance().catch(e => this.retry(e)); } };
@@ -53,7 +53,7 @@ export class RadioController {
     const settings = await api('/settings', patch);
     const replan = ['hostId', 'persona', 'city', 'timezone', 'interests', 'extraContext', 'llm', 'humorEvery', 'newsMinutes', 'customFeeds'].some(key => JSON.stringify(previous[key]) !== JSON.stringify(settings[key]));
     if (replan) { this.queue = []; this.needsProgramme = true; }
-    if (JSON.stringify(previous.tts) !== JSON.stringify(settings.tts)) this.speechCache.clear();
+    if (JSON.stringify(previous.tts) !== JSON.stringify(settings.tts)) { this.voiceRevision++; this.cancelSpeech(); this.speechCache.clear(); this.emit({ voiceStatus: null }); }
     this.emit({ settings, ...(replan ? { queue: [] } : {}) });
     if (this.audioContext) { this.master.gain.setTargetAtTime(settings.volume, this.audioContext.currentTime, 0.1); this.voiceGain.gain.value = settings.speechVolume; }
     if (this.running) this.prepareNext();
@@ -274,7 +274,7 @@ export class RadioController {
     return false;
   }
   scheduleSpeech(segment, previous, incoming, cue, generation, transition, prepared, musicStarted) {
-    const prior = this.transitionSpeech;
+    const prior = this.transitionSpeech, revision = this.voiceRevision;
     const job = (async () => {
       if (prior) await prior;
       const at = async target => {
@@ -283,14 +283,16 @@ export class RadioController {
         return this.waitForCue(incoming.audio, Math.max(0, target - cue.musicStart), generation, false, transition);
       };
       const ready = await prepared;
-      if (ready.error || generation !== this.generation || transition !== this.transitionGeneration) return;
+      if (generation !== this.generation || transition !== this.transitionGeneration || revision !== this.voiceRevision) return;
+      if (ready.error) { this.emit({ notice: ready.error + '；音乐继续播放。' }); return; }
       if (!await at(cue.duckAt)) return;
+      if (revision !== this.voiceRevision) return;
       this.duck(true);
       const duckBegan = Date.now();
       if (!await at(cue.speechStart)) return;
       // Late network delivery still gets an audible pre-duck cue.
       await wait(Math.max(0, PRE_DUCK_SECONDS * 1000 - (Date.now() - duckBegan)));
-      if (generation !== this.generation || transition !== this.transitionGeneration) return;
+      if (generation !== this.generation || transition !== this.transitionGeneration || revision !== this.voiceRevision) return;
       await this.say(segment.speech, false, { prepared: ready, preDucked: true });
     })().catch(() => {}).finally(() => { if (this.transitionSpeech === job) this.transitionSpeech = null; });
     this.transitionSpeech = job;
@@ -424,13 +426,13 @@ export class RadioController {
     if (!prepared) return;
     while (!preview && !this.running && token === this.voiceGeneration && this.state.status === 'paused') await wait(100);
     if (token !== this.voiceGeneration || (!preview && !this.running)) return;
-    if (prepared.error) { this.emit({ notice: '主持音色暂时不可用，音乐继续。' }); return; }
+    if (prepared.error) { this.emit({ notice: prepared.error + '；音乐继续播放。' }); return; }
     if (!options.preDucked) {
       this.duck(true); await Promise.race([cancelled, wait(PRE_DUCK_SECONDS * 1000)]);
       while (!preview && !this.running && token === this.voiceGeneration && this.state.status === 'paused') await wait(100);
       if (token !== this.voiceGeneration || (!preview && !this.running)) return;
     }
-    this.emit({ speech });
+    this.emit({ speech, voiceStatus: { provider: prepared.provider, voice: prepared.voice || (prepared.provider === 'fish' ? this.state.settings.tts.fishVoiceId : this.state.settings.tts.voice) } });
     if (prepared.notice) this.emit({ notice: prepared.notice });
     let success = false;
     try {

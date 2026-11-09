@@ -130,10 +130,11 @@ test('Fish preset sends the verified model, reference voice and prosody', async 
   assert.equal(request.headers.model, 's2.1-pro-free'); const body = JSON.parse(request.body);
   assert.equal(body.reference_id, DAFEIYU_VOICE.id); assert.equal(body.prosody.normalize_loudness, true);
 });
-test('provider failure uses neural fallback and never silently returns a system voice', async () => {
+test('a selected provider failure never substitutes another voice', async () => {
   const { store } = fixture(1); store.settings({ tts: { provider: 'fish', apiKey: 'test' } });
-  const speech = new Speech(store, { fetchImpl: async () => { throw new Error('offline'); }, edgeImpl: async () => ({ bytes: Buffer.from('NEURAL'), type: 'audio/mpeg' }) });
-  const prepared = await speech.prepare('你好'); assert.equal(prepared.provider, 'edge'); assert.match(prepared.notice, /自然女声/);
+  let fallbackCalls = 0;
+  const speech = new Speech(store, { fetchImpl: async () => { throw new Error('offline'); }, edgeImpl: async () => { fallbackCalls++; return { bytes: Buffer.from('NEURAL'), type: 'audio/mpeg' }; } });
+  await assert.rejects(() => speech.prepare('你好'), /offline/); assert.equal(fallbackCalls, 0);
 });
 test('long-form model budget is forwarded to the actual DSH stream contract', async () => {
   let request;
