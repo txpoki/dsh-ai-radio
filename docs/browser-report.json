@@ -1,0 +1,26 @@
+{
+  "startedAt": "2026-11-09T06:34:40.668Z",
+  "checks": [
+    "One-click start, actual audio playback and speech completion",
+    "Pause preserves position and Play resumes",
+    "Settings changes keep current playback and refill subsequent programs",
+    "Both real audio decks overlap during the scheduled crossfade",
+    "Responsive mobile layout and exclusive cross-tab playback ownership",
+    "Stall watchdog advances to another playable track",
+    "24-track endurance across multiple automatic AI program refills",
+    "Playback and failed-track history persist during endurance run",
+    "Reload restores settings without unsolicited autoplay",
+    "No browser JavaScript errors"
+  ],
+  "metrics": {
+    "status": "playing",
+    "transitions": 24,
+    "spoken": 17,
+    "queue": 4,
+    "audioTime": 0.008,
+    "audioState": "running",
+    "host": "city"
+  },
+  "finishedAt": "2026-11-09T06:36:10.225Z",
+  "success": true
+}

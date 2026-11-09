@@ -1,0 +1,26 @@
+{
+  "checkedAt": "2026-11-09T06:34:40.444Z",
+  "note": "Unauthenticated public-service smoke test; no account cookie or paid API is used.",
+  "qr": {
+    "created": true,
+    "imageGenerated": true
+  },
+  "weather": {
+    "available": true,
+    "city": "上海",
+    "temperature": 12.6,
+    "source": "Open-Meteo"
+  },
+  "news": {
+    "count": 121,
+    "sources": [
+      "IT之家",
+      "中新网即时",
+      "中新网文化",
+      "中新网时政",
+      "中新网国际",
+      "中新网要闻"
+    ],
+    "sourceFailures": []
+  }
+}

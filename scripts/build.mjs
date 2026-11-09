@@ -1,0 +1,12 @@
+import { build } from 'esbuild';
+import { mkdir, writeFile } from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
+import { resolve, dirname } from 'node:path';
+const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+await mkdir(resolve(root, 'lib'), { recursive: true });
+const browser = await build({ absWorkingDir: root, entryPoints: ['client/index.jsx'], bundle: true, format: 'cjs', platform: 'browser', external: ['react', 'react-dom'], target: ['chrome110', 'safari16'], loader: { '.css': 'text' }, write: false });
+await writeFile(resolve(root, 'lib/client.js'), `/* Generated from client/. Run pnpm build after edits. */\nwindow.__ModuleLoader__.load({id:'dsh-ai-radio',factory:(require)=>{var module={exports:{}};var exports=module.exports;\n${browser.outputFiles[0].text}\nreturn module.exports;}});\n`);
+await mkdir(resolve(root, 'preview'), { recursive: true });
+await build({ absWorkingDir: root, entryPoints: ['client/preview.jsx'], bundle: true, format: 'iife', platform: 'browser', minify: true, define: { 'process.env.NODE_ENV': '"production"' }, target: ['chrome110', 'safari16'], loader: { '.css': 'text' }, outfile: resolve(root, 'preview/app.js') });
+await writeFile(resolve(root, 'preview/index.html'), '<!doctype html><html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#101511"><title>Aurora FM · 私人 AI 电台</title><style>body{margin:0;background:#090d0b}button,input,textarea{font:inherit}</style></head><body><div id="root"></div><script src="/app.js"></script></body></html>');
+console.log('Built DSH browser bundle and standalone preview.');

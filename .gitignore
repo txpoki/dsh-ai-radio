@@ -1,0 +1,9 @@
+node_modules/
+.radio-data/
+.env
+.env.*
+!.env.example
+test-results/
+*.tgz
+*.log
+.DS_Store

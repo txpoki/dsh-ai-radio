@@ -1,0 +1,52 @@
+import { chromium } from 'playwright';
+import { spawn } from 'node:child_process';
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import assert from 'node:assert/strict';
+const port=Number(process.env.RADIO_TEST_PORT)||4187;
+const origin=`http://127.0.0.1:${port}`;
+const executablePath=process.env.RADIO_BROWSER_EXECUTABLE||['C:/Program Files/Google/Chrome/Application/chrome.exe','C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe'].find(existsSync);
+mkdirSync('test-results',{recursive:true});mkdirSync('docs',{recursive:true});
+const stateDirectory=resolve('test-results','session-'+Date.now());
+const server=spawn(process.execPath,['scripts/dev.mjs','--demo'],{env:{...process.env,PORT:String(port),AI_RADIO_DEMO_TRACK_SECONDS:'5',AI_RADIO_DATA_DIR:stateDirectory},stdio:['ignore','pipe','pipe']});
+let serverLog='';server.stdout.on('data',x=>{serverLog+=x;});server.stderr.on('data',x=>{serverLog+=x;});
+let browser;const errors=[];const report={startedAt:new Date().toISOString(),checks:[]};
+async function ready(){for(let i=0;i<100;i++){try{if((await fetch(origin+'/dsh-ai-radio/bootstrap')).ok)return;}catch{}await new Promise(r=>setTimeout(r,100));}throw new Error('Preview server did not start: '+serverLog);}
+const check=(name)=>{report.checks.push(name);console.log('PASS '+name);};
+try{
+  await ready();browser=await chromium.launch({headless:true,...(executablePath?{executablePath}:{}),args:['--mute-audio']});
+  const context=await browser.newContext({viewport:{width:1440,height:1020}});const page=await context.newPage();
+  page.on('pageerror',error=>errors.push(error.message));
+  await page.goto(origin);await page.waitForFunction(()=>window.__radio?.state.settings&&!window.__radio.state.loading);
+  await page.getByTestId('play').click();
+  await page.waitForFunction(()=>window.__radio.state.status==='playing'&&window.__radio.state.transitions>=1,null,{timeout:20000});
+  await page.waitForFunction(()=>window.__radio.state.spokenCount>=1,null,{timeout:10000});
+  assert.equal(await page.evaluate(()=>window.__radio.audioContext.state),'running');
+  check('One-click start, actual audio playback and speech completion');
+  await page.waitForFunction(()=>window.__radio.state.position>1,null,{timeout:10000});
+  await page.getByTestId('play').click();const position=await page.evaluate(()=>window.__radio.decks[window.__radio.current].audio.currentTime);
+  await page.waitForTimeout(650);const paused=await page.evaluate(()=>window.__radio.decks[window.__radio.current].audio.currentTime);assert.ok(Math.abs(paused-position)<.05);
+  await page.getByTestId('play').click();await page.waitForFunction(()=>window.__radio.state.status==='playing');check('Pause preserves position and Play resumes');
+  await page.getByRole('button',{name:'电台设置',exact:true}).click();
+  await page.getByRole('button',{name:/阿岚 · 城市漫游/}).click();
+  await page.getByTestId('save-settings').click();await page.waitForFunction(()=>window.__radio.state.settings.hostId==='city');
+  await page.getByRole('button',{name:'正在收听',exact:true}).click();
+  await page.waitForFunction(()=>window.__radio.state.transitions>=4,null,{timeout:35000});
+  assert.equal(await page.evaluate(()=>window.__radio.state.status),'playing');check('Settings changes keep current playback and refill subsequent programs');
+  await page.waitForFunction(()=>{const r=window.__radio;return r.crossfading&&r.decks.every(d=>!d.audio.paused);},null,{timeout:15000});
+  check('Both real audio decks overlap during the scheduled crossfade');
+  await page.screenshot({path:'docs/screenshot-desktop.png'});
+  const mobile=await context.newPage();mobile.on('pageerror',error=>errors.push(error.message));await mobile.setViewportSize({width:430,height:932});await mobile.goto(origin);await mobile.waitForFunction(()=>window.__radio?.state.settings&&!window.__radio.state.loading);
+  assert.ok(await mobile.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));await mobile.screenshot({path:'docs/screenshot-mobile.png'});
+  await mobile.getByTestId('play').click();await mobile.waitForFunction(()=>window.__radio.state.notice.includes('另一个标签页'));assert.notEqual(await mobile.evaluate(()=>window.__radio.state.status),'playing');check('Responsive mobile layout and exclusive cross-tab playback ownership');await mobile.close();
+  const before=await page.evaluate(()=>window.__radio.state.transitions);
+  await page.evaluate(()=>{const r=window.__radio;const a=r.decks[r.current].audio;a.pause();r.lastPosition=a.currentTime;r.lastProgressAt=Date.now()-25000;r.tick();});
+  await page.waitForFunction(n=>window.__radio.state.transitions>n,before,{timeout:20000});check('Stall watchdog advances to another playable track');
+  await page.waitForFunction(()=>window.__radio.state.transitions>=24,null,{timeout:150000});
+  const metrics=await page.evaluate(()=>{const r=window.__radio;return{status:r.state.status,transitions:r.state.transitions,spoken:r.state.spokenCount,queue:r.queue.length,audioTime:r.decks[r.current].audio.currentTime,audioState:r.audioContext.state,host:r.state.settings.hostId};});
+  assert.equal(metrics.status,'playing');assert.ok(metrics.transitions>=24);assert.ok(metrics.spoken>=4);assert.equal(metrics.audioState,'running');check('24-track endurance across multiple automatic AI program refills');
+  const history=await(await fetch(origin+'/dsh-ai-radio/history')).json();assert.ok(history.some(x=>x.action==='failed'));assert.ok(history.filter(x=>x.action==='played').length>=15);check('Playback and failed-track history persist during endurance run');
+  await page.evaluate(()=>window.__radio.pause());await page.reload();await page.waitForFunction(()=>window.__radio?.state.settings&&!window.__radio.state.loading);assert.equal(await page.evaluate(()=>window.__radio.state.status),'idle');check('Reload restores settings without unsolicited autoplay');
+  assert.deepEqual(errors,[]);check('No browser JavaScript errors');report.metrics=metrics;report.finishedAt=new Date().toISOString();report.success=true;
+}catch(error){report.success=false;report.error=error.stack;report.browserErrors=errors;report.serverLog=serverLog;throw error;}
+finally{writeFileSync(resolve('test-results/browser-report.json'),JSON.stringify(report,null,2)+'\n');await browser?.close();server.kill();}
