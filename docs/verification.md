@@ -4,7 +4,7 @@ Checked on **2026-11-09**, Asia/Shanghai. These results distinguish real public-
 
 ## 0.1.1 activation regression
 
-- **27 tests passed**, including a lifecycle test executed against the Cordis **4.0.5** bundled in the installed **DSH Desktop 2.0.18**.
+- **30 tests passed**, including a lifecycle test executed against the Cordis **4.0.5** bundled in the installed **DSH Desktop 2.0.18**, and three React rendering regressions for the closed overlay during loading/failure and explicit reconnection.
 - Verified that the radio waits for the actual `webServer`, `llm`, `tools`, and `systemPrompt` services, enters the active state when they exist, and disposes its routes and tool cleanly.
 - Fixed the 0.1.0 declaration that was incorrectly interpreted as services named `required` and `optional`. Earlier hand-written lifecycle mocks did not exercise this loader behavior.
 - The initial browser endurance and public-service observations below apply to the unchanged player/context pipeline; this patch changes host dependency declaration and version metadata.

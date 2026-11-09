@@ -29,10 +29,13 @@ function Cover({ title, large = false }) {
   return <div className={'ar-cover ' + (large ? 'large' : '')} style={{ '--cover-hue': `${seed % 70 + 120}deg` }}><div className="ar-cover-orbit"/><span>{title ? [...title].slice(0,4).join('') : 'AURORA'}</span><small>PERSONAL FREQUENCY</small></div>;
 }
 export function App({ controller, standalone = false, miniOnly = false, panelOnly = false }) {
-  const s = useSyncExternalStore(controller.subscribe, controller.snapshot);
+  const s = useSyncExternalStore(controller.subscribe, controller.snapshot, controller.snapshot);
   const [clock, setClock] = useState(new Date());
   useEffect(() => { const timer = setInterval(() => setClock(new Date()), 1000); return () => clearInterval(timer); }, []);
   const open = page => controller.emit({ expanded: true, page });
+  // A closed shell.overlay contribution must not render an error/loading box
+  // over the host's toolbar when the backend has not activated yet.
+  if (panelOnly && !s.expanded) return null;
   if (s.loading) return <div className="ar-root"><div className="ar-loading">正在调频…</div></div>;
   if (!s.settings) return <div className="ar-root"><Button onClick={() => controller.init()}>重新连接电台</Button><p>{s.notice}</p></div>;
   const shown = !miniOnly && (standalone || s.expanded);
