@@ -5,7 +5,7 @@ export function wav(seconds = 5, frequency = 220) {
   for(let i=0;i<length;i++){ const t=i/rate; const envelope=Math.min(1,t*4,(seconds-t)*4); const sound=Math.sin(t*frequency*Math.PI*2)*0.055+Math.sin(t*frequency*1.5*Math.PI*2)*0.025;bytes.writeInt16LE(Math.round(32767*sound*Math.max(0,envelope)),44+i*2); }
   return bytes;
 }
-export function attachDemo(service, { seconds = 35 } = {}) {
+export function attachDemo(service, { seconds = 35, speechSeconds = Number(process.env.AI_RADIO_DEMO_SPEECH_SECONDS) || .9 } = {}) {
   const now = Date.now();
   const titles=['晨雾来信','沿海公路','晚风有回音','星期天的云','雨后森林','微光与潮汐','慢慢出发','街角咖啡','日落之前','山谷里的风','人间漫游','给明天的信'];
   const songs=titles.map((title,i)=>({id:String(1001+i),title,artists:[['回声旅人','海岸线计划','森林信号'][i%3]+'（演示）'],album:'合成测试音乐 · 不使用真实歌曲',interval:seconds,playlistNames:[['清晨散步','深夜留白','城市漫游'][i%3]]}));
@@ -18,7 +18,7 @@ export function attachDemo(service, { seconds = 35 } = {}) {
     if(payload.stage==='director')return JSON.stringify({title:'小鲸的今日电台 · 演示',editorialNotes:'本地合成音频用于验证整期策划、开场和口播衔接。',arc:[{title:'慢慢出发',purpose:'从轻柔的开场逐渐展开。'},{title:'沿途风景',purpose:'保持流动感。'},{title:'晚风来信',purpose:'舒缓收束。'}],order:payload.songs.map(x=>x.id),researchQueries:[]});
     return JSON.stringify({opening:'听众朋友们，大家好！我是小鲸。这里是电台本地演示，音乐和语音均为合成测试音频。',songs:payload.songs.map((x,i)=>({id:x.id,intro:'刚刚的旋律先收进耳朵，接下来一起听《'+x.title+'》。这首也来自今天的演示歌单。',sourceIds:x.sources.slice(0,1).map(s=>s.id),joke:x.humorSlot?'小鲸今天准备了好多歌，连海浪都排着队来听啦。':''}))});
   };
-  service.speech.prepare=async()=>{const id=randomUUID();service.speech.audio.set(id,{bytes:wav(.9,440),type:'audio/wav'});return{provider:'demo',url:'/dsh-ai-radio/speech/audio/'+id};};
+  service.speech.prepare=async()=>{const id=randomUUID();service.speech.audio.set(id,{bytes:wav(speechSeconds,440),type:'audio/wav'});return{provider:'demo',url:'/dsh-ai-radio/speech/audio/'+id,duration:speechSeconds,measured:true};};
   service.music.loadLibrary=async(ids)=>{service.store.state.settings.selectedPlaylistIds=ids;return{count:songs.length,failures:[]};};
   service.music.syncPlaylists=async()=>service.store.state.playlists;
   service.music.logout=()=>{};

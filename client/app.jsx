@@ -34,7 +34,7 @@ export function App({ controller, standalone = false, miniOnly = false, panelOnl
   if (panelOnly && !s.expanded) return null;
   if (s.loading) return <div className="ar-root"><p className="ar-muted">正在连接电台…</p></div>;
   if (!s.settings) return <div className="ar-root ar-connection"><Button onClick={() => controller.init()}>重新连接电台</Button><p>{s.notice}</p></div>;
-  const active = ['playing', 'hosting'].includes(s.status);
+  const active = ['playing', 'hosting', 'preparing'].includes(s.status);
   const shown = !miniOnly && (standalone || s.expanded);
   return <div className={'ar-root ' + (standalone ? 'ar-standalone' : '')}>
     {!standalone && !panelOnly && <div className="ar-mini">
@@ -59,22 +59,25 @@ export function App({ controller, standalone = false, miniOnly = false, panelOnl
   </div>;
 }
 function RadioPage({ controller, state: s }) {
-  const active = ['playing', 'hosting'].includes(s.status), busy = s.status === 'preparing';
+  const active = ['playing', 'hosting', 'preparing'].includes(s.status), busy = s.status === 'preparing';
   const song = s.track || s.upcomingTrack;
   const p = s.programmeStatus;
   return <section className="ar-radio-page">
     <div className="ar-page-heading"><h2>{s.programmeTitle || p?.programme?.title || '今天，听些什么？'}</h2><p>{busy ? '小鲸会先准备好整期节目，再陪你开台。' : '主持人 小鲸 · 元气鲸鱼少女'}</p></div>
-    {busy && <div className="ar-preparation" role="status"><span className="ar-spinner"/><div><strong>{p?.phase || '正在准备今天的节目'}</strong><p>{p?.total > 0 ? p.done + ' / ' + p.total : ''}{p?.detail ? ' · ' + p.detail : ''}</p></div><button className="ar-text-button" onClick={() => controller.stop()}>取消</button></div>}
+    {busy && <div className="ar-preparation" role="status"><span className="ar-spinner"/><div><strong>{p?.phase || '正在准备今天的节目'}</strong><p>{p?.total > 0 ? p.done + ' / ' + p.total : ''}{p?.detail ? ' · ' + p.detail : ''}</p>
+      {p?.model && <p>{p.model.phase === 'thinking' ? '模型正在思考' : p.model.phase === 'writing' ? '模型正在写稿' : p.model.phase === 'finished' ? '正在保存稿件' : '正在连接主持模型'}{p.model.textChars ? ' · 已输出 ' + p.model.textChars + ' 字' : ''}{p.model.attempt > 1 ? ' · 第 ' + p.model.attempt + ' 次尝试' : ''}</p>}
+      {p?.elapsedMs > 0 && <p>已准备 {Math.floor(p.elapsedMs / 60000)} 分 {Math.floor(p.elapsedMs / 1000) % 60} 秒 · 已完成的章节会保留</p>}
+    </div><button className="ar-text-button" onClick={() => controller.stop()}>取消</button></div>}
     <div className="ar-player">
       <Cover song={song}/>
       <div className="ar-player-body">
         <span className={'ar-state ' + (active ? 'active' : '')}><i/>{STATUS[s.status]}</span>
         <h3>{song?.title || '从你的歌单开始'}</h3>
-        <p className="ar-artist">{song?.artists.join(' / ') || '先去「我的歌单」，选择今天想听的音乐。'}</p>
+        <p className="ar-artist">{song?.artists.join(' / ') || (s.libraryCount ? busy ? '背景音乐先陪你一会儿，小鲸正在准备今天的节目。' : '歌单已就绪，点击开始今日电台。' : '先去「我的歌单」，选择今天想听的音乐。')}</p>
         <p className="ar-album">{song?.album || '\u00a0'}</p>
         <div className="ar-progress" aria-label="歌曲进度"><div><i style={{ width: Math.min(100, s.position / Math.max(1, s.duration) * 100) + '%' }}/></div><span>{time(s.position)}<span>{time(s.duration)}</span></span></div>
         <div className="ar-controls">
-          <Button primary data-testid="play" disabled={busy} icon={active ? 'pause' : 'play'} aria-label={active ? '暂停电台' : '播放电台'} onClick={() => active ? controller.pause() : controller.play()}>{active ? '暂停' : s.status === 'paused' ? '继续播放' : '开始今日电台'}</Button>
+          <Button primary data-testid="play" icon={active ? 'pause' : 'play'} aria-label={active ? '暂停电台' : '播放电台'} onClick={() => active ? controller.pause() : controller.play()}>{active ? '暂停' : s.status === 'paused' ? '继续播放' : '开始今日电台'}</Button>
           <button className="ar-icon-button" aria-label="下一首" disabled={!s.track && !s.speech} onClick={() => controller.next()}><Icon name="next"/></button>
           <label className="ar-volume"><Icon name="volume" size={17}/><input aria-label="播放音量" type="range" min="0" max="1" step=".05" value={s.settings.volume} onChange={e => { const volume = Number(e.target.value); controller.emit({ settings: { ...s.settings, volume } }); if (controller.master) controller.master.gain.value = volume; }} onPointerUp={e => controller.saveSettings({ volume: Number(e.target.value) }).catch(() => {})} onKeyUp={e => controller.saveSettings({ volume: Number(e.target.value) }).catch(() => {})}/></label>
         </div>

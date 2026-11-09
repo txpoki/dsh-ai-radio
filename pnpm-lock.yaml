@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      music-metadata:
+        specifier: 11.16.1
+        version: 11.16.1
       node-edge-tts:
         specifier: 1.2.12
         version: 1.2.12
@@ -29,6 +32,9 @@ importers:
         version: 18.3.1(react@18.3.1)
 
 packages:
+
+  '@borewit/text-codec@0.2.3':
+    resolution: {integrity: sha512-49CycTz1aAZmvFcwkeFyhud1HUmRIB5Tabf7ALV+VA4Iu85MTfz2cUwzPagMFAdVBvrWdkCxG67I30tUwwpKsw==}
 
   '@deepseek-ai/cordis@4.0.5':
     resolution: {integrity: sha512-Sktq5axy0owk9PdnivBRNOJjHEVEibCt0+TDDZcv0+UH2KS1M910fX4kn5y45YFsrpZIi1mJf/1s5VzywMUnyg==}
@@ -204,6 +210,13 @@ packages:
   '@standard-schema/spec@1.1.0':
     resolution: {integrity: sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w==}
 
+  '@tokenizer/inflate@0.4.1':
+    resolution: {integrity: sha512-2mAv+8pkG6GIZiF1kNg1jAjh27IDxEPKwdGul3snfztFerfPGI1LjDezZp3i7BElXompqEtPmoPx6c2wgtWsOA==}
+    engines: {node: '>=18'}
+
+  '@tokenizer/token@0.3.0':
+    resolution: {integrity: sha512-OvjF+z51L3ov0OyAU0duzsYuvO01PH7x4t6DJx+guahgTnBHkhJdG7soQeTSFLWN3efnHyibZ4Z8l2EuWwJN3A==}
+
   agent-base@7.1.4:
     resolution: {integrity: sha512-MnA+YT8fwfJPgBx3m60MNqakm30XOkyIoH1y6huTQvC0PwZG7ki8NacLBcrPbNoo8vEZy7Jpuk7+jMO+CUovTQ==}
     engines: {node: '>= 14'}
@@ -227,6 +240,10 @@ packages:
   color-name@1.1.4:
     resolution: {integrity: sha512-dOy+3AuW3a2wNbZHIuMZpTcgjGuLU/uBL/ubcZF9OXbDo8ff4O8yVp5Bf0efS8uEoYo5q4Fx7dY9OgQGXgAsQA==}
 
+  content-type@2.1.0:
+    resolution: {integrity: sha512-mj7UPXE0jaqaOsukNZRUEfEi2AcL7C/vwmwcHV0O97eO1E1pxBZuyjlZrx5seTaNBg1U6+o35wpa35Qfcc+7ag==}
+    engines: {node: '>=18'}
+
   debug@4.4.3:
     resolution: {integrity: sha512-RGwwWnwQvkVfavKVt22FGLw+xYSdzARwm0ru6DhTVA3umU5hZc28V3kO4stgYryrTlLpuvgI9GiijltAjNbcqA==}
     engines: {node: '>=6.0'}
@@ -248,6 +265,10 @@ packages:
     resolution: {integrity: sha512-WUj2qlxaQtO4g6Pq5c29GTcWGDyd8itL8zTlipgECz3JesAiiOKotd8JU6otB3PACgG6xkJUyVhboMS+bje/jA==}
     engines: {node: '>=6'}
 
+  file-type@21.3.4:
+    resolution: {integrity: sha512-Ievi/yy8DS3ygGvT47PjSfdFoX+2isQueoYP1cntFW1JLYAuS4GD7NUPGg4zv2iZfV52uDyk5w5Z0TdpRS6Q1g==}
+    engines: {node: '>=20'}
+
   get-caller-file@2.0.5:
     resolution: {integrity: sha512-DyFP3BM/3YHTQOCUL/w0OZHR0lpKeGrxotcHWcqNEdnltqFwXVfhEBQ94eIo34AfQpo0rGki4cyIiftY06h2Fg==}
     engines: {node: 6.* || 8.* || >= 10.*}
@@ -255,6 +276,9 @@ packages:
   https-proxy-agent@7.0.6:
     resolution: {integrity: sha512-vK9P5/iUfdl95AI+JVyUuIcVtd4ofvtrOr3HNtM2yxC9bnMbEdp3x01OhQNnjb8IJYi38VlTE3mBXwcfvywuSw==}
     engines: {node: '>= 14'}
+
+  ieee754@1.2.1:
+    resolution: {integrity: sha512-dcyqhDvX1C46lXZcVqCpK+FtMRQVdIMN6/Df5js2zouUsqG7I6sFxitIC+7KYK29KdXOLHdu9zL4sFnoVQnqaA==}
 
   is-fullwidth-code-point@3.0.0:
     resolution: {integrity: sha512-zymm5+u+sCsSWyD9qNaejV3DFvhCKclKdizYaJUuHA83RLjb7nSuGnddCHGv0hk+KY7BMAlsWeK4Ueg6EV6XQg==}
@@ -267,8 +291,16 @@ packages:
     resolution: {integrity: sha512-lyuxPGr/Wfhrlem2CL/UcnUc1zcqKAImBDzukY7Y5F/yQiNdko6+fRLevlw1HgMySw7f611UIY408EtxRSoK3Q==}
     hasBin: true
 
+  media-typer@2.0.0:
+    resolution: {integrity: sha512-kOy3OxT2HH39N70UnKgu4NWDZjLOz8W/mfyvniHjRH/DrL3f2pOfvWQ4p60offbbtDAnXWp0v9LfMIqMec269Q==}
+    engines: {node: '>=18'}
+
   ms@2.1.3:
     resolution: {integrity: sha512-6FlzubTLZG3J2a/NVCAleEhjzq5oxgHyaCU9yYXvcLsvoVaHJq/s5xXI6/XXP6tz7R9xAOtHnSO/tXtF3WRTlA==}
+
+  music-metadata@11.16.1:
+    resolution: {integrity: sha512-uR/mHK6eyfl8h3jVCobF5b38Mfg1IDJMiBxIVbmm5F+G1OXEFcUpQHveO84tJBAqvY93GCRY2R4kDyx7s06Rug==}
+    engines: {node: '>=18'}
 
   node-edge-tts@1.2.12:
     resolution: {integrity: sha512-tvopsQ+XkxHGHM58GUVDM7iwzxVivjqSJb948xg2F0q9r+OWO7bSrJkHnJ0e7BPTxhPiTrxK+9zsl4CL5H5KbQ==}
@@ -308,6 +340,21 @@ packages:
     resolution: {integrity: sha512-Y38VPSHcqkFrCpFnQ9vuSXmquuv5oXOKpGeT6aGrr3o3Gc9AlVa6JBfUSOCnbxGGZF+/0ooI7KrPuUSztUdU5A==}
     engines: {node: '>=8'}
 
+  strtok3@10.7.0:
+    resolution: {integrity: sha512-iAqrCpp7UXD2FZiHWhLXqdJ6CmNeVzRkkHAyyhhKMVtbVm2KtPX3D/bJNonvtcyLTHS4rwqP2pz9fsjK1K4z0Q==}
+    engines: {node: '>=18'}
+
+  token-types@6.2.0:
+    resolution: {integrity: sha512-s9euYHM//T3loJtbNUYdbAzsMlvKBeRS+XCLFy+UGosMQH19Hwjap5k19i4PPAEJJBsVIpMpVTxl4fIqCuNfUg==}
+    engines: {node: '>=14.16'}
+
+  uint8array-extras@1.6.0:
+    resolution: {integrity: sha512-8iAasVS4wUx0gPLjH8Xtz2PeDzTSiy8QiLGu2DT3X5GU+egFEQhpnbtkehbAwjvDcxIERmCYcysiODFmE3Ud0Q==}
+    engines: {node: '>=18'}
+
+  win-guid@0.2.1:
+    resolution: {integrity: sha512-gEIQU4mkgl2OPeoNrWflcJFJ3Ae2BPd4eCsHHA/XikslkIVms/nHhvnvzIZV7VLmBvtFlDOzLt9rrZT+n6D67A==}
+
   wrap-ansi@7.0.0:
     resolution: {integrity: sha512-YVGIj2kamLSTxw6NsZjoBxfSwsn0ycdesmc4p+Q21c5zPuZ1pl+NfxVdxPtdHvmNVOQ6XSYG4AUtyt/Fi7D16Q==}
     engines: {node: '>=10'}
@@ -337,6 +384,8 @@ packages:
     engines: {node: '>=12'}
 
 snapshots:
+
+  '@borewit/text-codec@0.2.3': {}
 
   '@deepseek-ai/cordis@4.0.5':
     dependencies:
@@ -425,6 +474,15 @@ snapshots:
 
   '@standard-schema/spec@1.1.0': {}
 
+  '@tokenizer/inflate@0.4.1':
+    dependencies:
+      debug: 4.4.3
+      token-types: 6.2.0
+    transitivePeerDependencies:
+      - supports-color
+
+  '@tokenizer/token@0.3.0': {}
+
   agent-base@7.1.4: {}
 
   ansi-regex@5.0.1: {}
@@ -444,6 +502,8 @@ snapshots:
       color-name: 1.1.4
 
   color-name@1.1.4: {}
+
+  content-type@2.1.0: {}
 
   debug@4.4.3:
     dependencies:
@@ -482,6 +542,15 @@ snapshots:
 
   escalade@3.2.0: {}
 
+  file-type@21.3.4:
+    dependencies:
+      '@tokenizer/inflate': 0.4.1
+      strtok3: 10.7.0
+      token-types: 6.2.0
+      uint8array-extras: 1.6.0
+    transitivePeerDependencies:
+      - supports-color
+
   get-caller-file@2.0.5: {}
 
   https-proxy-agent@7.0.6:
@@ -491,6 +560,8 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
+  ieee754@1.2.1: {}
+
   is-fullwidth-code-point@3.0.0: {}
 
   js-tokens@4.0.0: {}
@@ -499,7 +570,24 @@ snapshots:
     dependencies:
       js-tokens: 4.0.0
 
+  media-typer@2.0.0: {}
+
   ms@2.1.3: {}
+
+  music-metadata@11.16.1:
+    dependencies:
+      '@borewit/text-codec': 0.2.3
+      '@tokenizer/token': 0.3.0
+      content-type: 2.1.0
+      debug: 4.4.3
+      file-type: 21.3.4
+      media-typer: 2.0.0
+      strtok3: 10.7.0
+      token-types: 6.2.0
+      uint8array-extras: 1.6.0
+      win-guid: 0.2.1
+    transitivePeerDependencies:
+      - supports-color
 
   node-edge-tts@1.2.12:
     dependencies:
@@ -542,6 +630,20 @@ snapshots:
   strip-ansi@6.0.1:
     dependencies:
       ansi-regex: 5.0.1
+
+  strtok3@10.7.0:
+    dependencies:
+      '@tokenizer/token': 0.3.0
+
+  token-types@6.2.0:
+    dependencies:
+      '@borewit/text-codec': 0.2.3
+      '@tokenizer/token': 0.3.0
+      ieee754: 1.2.1
+
+  uint8array-extras@1.6.0: {}
+
+  win-guid@0.2.1: {}
 
   wrap-ansi@7.0.0:
     dependencies:

@@ -2,6 +2,22 @@
 
 Checked on **2026-11-09**, Asia/Shanghai. These results distinguish real public-service probes from simulated account/audio tests.
 
+## 0.2.2 continuous music scheduling
+
+- **56 unit/API/lifecycle tests passed**. Coverage includes measured speech duration, persistent audio reuse, independently scheduled music/voice cues, and recalibration of an existing script or changed voice without repeating editorial generation.
+- **14 browser checks passed**, crossing a full episode boundary with at least 24 music starts and 24 completed narration clips. Pause/resume, voice changes, a stalled track, dropped progress requests, cancellation and UI disposal were exercised with real HTMLAudio elements in installed Chrome.
+- **Two startup checks passed**: the station bed begins during a pending model request, and pause/resume during preparation proceeds into the greeting and music automatically.
+- **Three long-narration mixing checks passed** with eight-second generated tracks, a two-second crossfade and 3.5-second narration. All 420 sampled in-song voice instants had music; 237 samples contained both music decks. The incoming song continued beneath narration after the outgoing song ended. Music was already reduced before each segue voice onset, with more than 750ms of observed lead below the test threshold. Regular segues did not use the station bed. See [mix-report.json](mix-report.json).
+- The actual previously synthesized Xiaoyi MP3 (135,936 bytes) was parsed successfully as MPEG 2 Layer 3 with a duration of **11.328 seconds**. The new episode preparation uses this metadata mechanism rather than estimating duration solely from text length.
+- Build and manifest/syntax checks passed. These 0.2.2 checks use generated music and controlled model responses; they do not establish a live Desktop installation or a new real-account programme run for this version.
+
+## 0.2.1 startup recovery
+
+- **50 unit/API/lifecycle tests passed**. Reproduced a reasoning-only stream ending in max-tokens; it now raises a typed output-limit error. Verified capability-bound reasoning selection, increased retry budgets, and persisted chapter recovery after a simulated transport failure without repeating the director or completed chapters.
+- **14 browser checks passed** with 24 track starts and 25 completed narration clips. A deliberately dropped progress request recovered automatically; disposing the UI did not send a backend cancellation.
+- Two additional startup browser checks passed: station BGM began before a deliberately delayed model request returned, and pause/resume during preparation continued into the greeting, introduction and first actual HTMLAudio track.
+- Individual web research has a deadline, including providers that ignore their cancellation signal. Drafts preserve already completed work; diagnostic progress contains counts and activity phases, never private reasoning text.
+
 ## 0.2.0 programme and voice revision
 
 - **45 unit/API/lifecycle tests passed**. The whole-programme regression researches and scripts all 64 fixture songs before issuing playback batches, preserves their planned order, executes an AI follow-up query, and exports a full script. Cancellation and model failure cannot publish a partial programme as ready.

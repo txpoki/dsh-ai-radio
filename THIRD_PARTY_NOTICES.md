@@ -12,7 +12,7 @@ Design and code studies: [Claudio](https://github.com/hllqkb/Claudio), MIT, for 
 
 Music is streamed using the listener's own NetEase account permissions. This plugin does not unlock unavailable tracks or redistribute a music library. The MIT license covers this software, not third-party music, API services, or voice rights.
 
-Version 0.2 uses [node-edge-tts](https://github.com/SchneeHertz/node-edge-tts), MIT, as a declared runtime dependency; its distributed license accompanies the npm package. No code from the GPL-licensed Python edge-tts or the GPL-licensed dafeiyu-ai-vtuber is copied here.
+Version 0.2 uses [node-edge-tts](https://github.com/SchneeHertz/node-edge-tts), MIT, as a declared runtime dependency; its distributed license accompanies the npm package. Version 0.2.2 also uses [music-metadata](https://github.com/Borewit/music-metadata), MIT, to measure synthesized audio duration. No code from the GPL-licensed Python edge-tts or the GPL-licensed dafeiyu-ai-vtuber is copied here.
 
 The public Blue Dafeiyu reference ID and model preset were identified in [zbsdsb/dafeiyu-ai-vtuber/config.json](https://github.com/zbsdsb/dafeiyu-ai-vtuber/blob/dafeiyu/config.json). This is configuration interoperability, not a redistribution of voice weights, reference recordings, character artwork, or that project's implementation. Fish Audio use and voice availability remain subject to the provider and voice owner.
 

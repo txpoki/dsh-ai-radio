@@ -1,0 +1,84 @@
+{
+  "fixture": {
+    "musicSeconds": 8,
+    "speechSeconds": 3.5,
+    "crossfadeSeconds": 2
+  },
+  "checks": [
+    "Long narration spans outgoing and incoming songs with zero dry music samples",
+    "Independent music crossfade begins before the outgoing song ends",
+    "Music ducks at least 750ms before each measured voice onset"
+  ],
+  "metrics": {
+    "starts": [
+      {
+        "at": 183.09999999962747,
+        "transition": 0,
+        "gain": 1,
+        "leadMs": 0
+      },
+      {
+        "at": 2835.0999999996275,
+        "transition": 0,
+        "gain": 0.14354678988456726,
+        "leadMs": 934.8999999985099
+      },
+      {
+        "at": 7570.300000000745,
+        "transition": 0,
+        "gain": 0.14004583656787872,
+        "leadMs": 5670
+      },
+      {
+        "at": 16340.900000000373,
+        "transition": 1,
+        "gain": 0.14367127418518066,
+        "leadMs": 915.5
+      },
+      {
+        "at": 22335.5,
+        "transition": 2,
+        "gain": 0.1431734710931778,
+        "leadMs": 960.1999999992549
+      },
+      {
+        "at": 28335.199999999255,
+        "transition": 3,
+        "gain": 0.1430153250694275,
+        "leadMs": 959.7999999988824
+      }
+    ],
+    "songs": [
+      {
+        "at": 11072.699999999255,
+        "voicePlaying": false,
+        "outgoingPlaying": false,
+        "outgoingPosition": 0
+      },
+      {
+        "at": 17075.800000000745,
+        "voicePlaying": true,
+        "outgoingPlaying": true,
+        "outgoingPosition": 5.996498
+      },
+      {
+        "at": 23075.699999999255,
+        "voicePlaying": true,
+        "outgoingPlaying": true,
+        "outgoingPosition": 5.996538
+      },
+      {
+        "at": 29077.400000000373,
+        "voicePlaying": true,
+        "outgoingPlaying": true,
+        "outgoingPosition": 5.998116
+      }
+    ],
+    "sampleCount": 420,
+    "drySamples": 0,
+    "overlapSamples": 237,
+    "afterOutgoingEnd": 6,
+    "bedSamples": 0
+  },
+  "success": true
+}

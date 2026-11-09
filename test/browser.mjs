@@ -24,6 +24,11 @@ try {
   await page.addStyleTag({ content: 'body{--dsw-font-family:"Segoe UI","Microsoft YaHei",sans-serif}' });
   assert.match(await page.locator('.ar-root').evaluate(e => getComputedStyle(e).fontFamily), /Segoe UI/);
   check('Three compact tabs, no news/history page and native DSH font variable');
+  let droppedPoll = 0;
+  await page.route('**/dsh-ai-radio/programme', async route => {
+    if (!droppedPoll++) return route.abort();
+    return route.continue();
+  });
   await page.evaluate(() => {
     const r = window.__radio; window.__timeline = [];
     r.voiceAudio.addEventListener('playing', () => window.__timeline.push({ kind: 'voice-start', type: r.state.speech?.type, at: performance.now(), bedPlaying: !r.bedAudio.paused }));
@@ -47,6 +52,8 @@ try {
   assert.ok(opening?.bedPlaying); assert.equal(ends.length, 2);
   assert.equal(firstSong.speech, false); assert.ok(ends.at(-1).at < firstSong.at);
   check('Playlist start prepares the whole programme; greeting and first intro play over BGM before the first song');
+  assert.ok(droppedPoll >= 2);
+  check('A dropped programme-progress request reconnects automatically without abandoning startup');
   check('Pause/resume during the opening freezes and restores both voice and background music');
   const programme = await (await fetch(origin + '/dsh-ai-radio/programme')).json();
   assert.equal(programme.status, 'ready'); assert.equal(programme.programme.trackCount, 12);
@@ -54,11 +61,11 @@ try {
   check('The complete 12-song episode is prepared and exportable before playback');
   await page.waitForFunction(() => {
     const r = window.__radio;
-    return r.state.speech?.type !== 'opening' && r.state.speech && r.current >= 0 && r.voiceAudio.currentTime > .4 && !r.voiceAudio.paused && r.musicBus.gain.value < .3 && !r.bedAudio.paused;
+    return r.state.speech?.type !== 'opening' && r.state.speech && r.current >= 0 && r.voiceAudio.currentTime > .4 && !r.voiceAudio.paused && r.musicBus.gain.value < .3 && r.decks.some(d => !d.audio.paused && !d.audio.ended && d.gain.gain.value > .01);
   }, null, { timeout: 15000 });
   const duck = await page.evaluate(() => ({ musicGain: window.__radio.musicBus.gain.value, voiceGain: window.__radio.voiceGain.gain.value, bedGain: window.__radio.bedGain.gain.value }));
-  assert.ok(duck.musicGain < .3 && duck.voiceGain === 1 && duck.bedGain > 0);
-  check('Real Web Audio music bus ducks under the voice while a station bed preserves continuity');
+  assert.ok(duck.musicGain < .3 && duck.voiceGain === 1);
+  check('Real Web Audio music bus ducks under the voice while the actual songs continue');
   await page.waitForFunction(() => window.__radio.state.status === 'playing' && !window.__radio.state.speech && window.__radio.musicBus.gain.value > .8, null, { timeout: 15000 });
   check('Music smoothly returns to normal gain after the voice ends');
   await page.screenshot({ path: 'docs/screenshot-desktop.png' });
@@ -84,7 +91,7 @@ try {
   await page.evaluate(() => { const r = window.__radio, a = r.decks[r.current].audio; a.pause(); r.lastPosition = a.currentTime; r.lastProgressAt = Date.now() - 25000; r.tick(); });
   await page.waitForFunction(n => window.__radio.state.transitions > n, before, { timeout: 20000 });
   check('A stalled music track advances without interrupting the episode');
-  await page.waitForFunction(() => window.__radio.state.transitions >= 24, null, { timeout: 150000 });
+  await page.waitForFunction(() => window.__radio.state.transitions >= 24 && window.__radio.state.spokenCount >= 24, null, { timeout: 150000 });
   const metrics = await page.evaluate(() => { const r = window.__radio; return { status: r.state.status, transitions: r.state.transitions, spoken: r.state.spokenCount, audioState: r.audioContext.state, voice: r.state.settings.tts.voice, timeline: window.__timeline.slice(0, 20) }; });
   assert.ok(metrics.transitions >= 24 && metrics.spoken >= 24); assert.equal(metrics.audioState, 'running');
   check('24-track endurance crosses a full episode boundary with prepared transitions and continuous audio');
@@ -103,6 +110,12 @@ try {
   await page.waitForTimeout(3300);
   assert.equal(await page.evaluate(() => window.__radio.running), false);
   check('Stop cancels a voice preparation wait immediately and delayed TTS cannot restart the radio');
+  let cancelledOnDispose = 0;
+  await page.route('**/dsh-ai-radio/programme/cancel', route => { cancelledOnDispose++; return route.continue(); });
+  await page.evaluate(() => { const r = window.__radio; r.programming = new Promise(() => {}); r.dispose(); });
+  await page.waitForTimeout(200);
+  assert.equal(cancelledOnDispose, 0);
+  check('Disposing the UI preserves a pending backend programme instead of cancelling its analysis');
   report.metrics = metrics; report.duck = duck; report.finishedAt = new Date().toISOString(); report.success = true;
 } catch (error) { report.success = false; report.error = error.stack; report.browserErrors = errors; report.serverLog = serverLog; throw error; }
 finally { writeFileSync('test-results/browser-report.json', JSON.stringify(report, null, 2) + '\n'); await browser?.close(); server.kill(); }

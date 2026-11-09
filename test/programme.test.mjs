@@ -36,7 +36,7 @@ test('the entire playlist is researched and scripted before any batch is issued'
   assert.equal(planner.job.status, 'ready');
   assert.equal(planner.current.segments.length, 64);
   assert.equal(planner.current.research.length, 64); assert.equal(searches.length, 65);
-  assert.equal(calls.filter(x => x.payload.stage === 'script').length, 4);
+  assert.equal(calls.filter(x => x.payload.stage === 'script').length, 8);
   assert.equal(calls[0].payload.songs.length, 64);
   assert.ok(calls.every(x => x.options.timeoutMs >= 180000 && x.options.maxTokens >= 4000));
   const selected = []; let first;
@@ -46,16 +46,35 @@ test('the entire playlist is researched and scripted before any batch is issued'
     selected.push(...batch.segments.map(x => x.track.id));
   }
   assert.deepEqual(selected, [...store.state.library.map(x => x.id)].reverse());
-  assert.equal(calls.length, 5, 'playback consumes the prepared script without per-four-song AI generation');
+  assert.equal(calls.length, 9, 'playback consumes the prepared script without per-four-song AI generation');
   assert.match(first.opening.text, /小鲸/);
   assert.match(planner.article(), /编导说明/);
   assert.match(planner.article(), /64\. 歌曲1/);
-  assert.ok(planner.current.segments.every(x => x.cue.placement === 'before-track' && x.speech.sourceIds.length));
+  assert.ok(planner.current.segments.every((x,i) => x.cue.placement === (i ? 'overlap-tail-and-head' : 'before-track') && x.speech.sourceIds.length));
 });
 test('planning failure is explicit and never masquerades as a completed AI programme', async () => {
   const { planner } = fixture(5, { generate: async () => { throw new Error('model offline'); } });
   planner.start(); await planner.preparing;
   assert.equal(planner.job.status, 'failed'); assert.equal(planner.current, null); assert.match(planner.job.error, /offline/);
+});
+test('an existing script and a changed voice are recalibrated without repeating editorial generation', async () => {
+  const { planner, store, calls } = fixture(3);
+  planner.start(); await planner.preparing;
+  const id = planner.current.id, callCount = calls.length;
+  delete planner.current.audioSignature;
+  let audioCalls = 0;
+  planner.prepareAudio = async p => {
+    audioCalls++;
+    for (const speech of [p.opening, ...p.segments.map(x => x.speech)]) { speech.duration = 10; speech.timingMeasured = true; }
+    p.audioTiming = { measured: 4, total: 4, failed: 0 };
+  };
+  planner.start(); await planner.preparing;
+  assert.equal(planner.current.id, id); assert.equal(calls.length, callCount); assert.equal(audioCalls, 1);
+  assert.equal(planner.current.timeline[1].speechEnd - planner.current.timeline[1].speechStart, 10);
+  store.state.settings.tts.voice = 'zh-CN-XiaoxiaoNeural';
+  planner.start(); await planner.preparing;
+  assert.equal(audioCalls, 2); assert.equal(calls.length, callCount);
+  planner.start(); assert.equal(planner.job.status, 'ready'); assert.equal(audioCalls, 2);
 });
 test('cancelling research cannot publish a partially completed programme', async () => {
   const { planner } = fixture(3);
@@ -120,6 +139,58 @@ test('long-form model budget is forwarded to the actual DSH stream contract', as
   let request;
   await generateText({ mode: 'dsh', provider: 'p', model: 'm' }, { async *stream(r) { request = r; yield { type: 'text-delta', text: '{}' }; } }, 's', {}, undefined, { maxTokens: 12000, timeoutMs: 240000 });
   assert.equal(request.maxTokens, 12000);
+});
+test('thinking that exhausts the total budget raises a specific output-limit error', async () => {
+  const progress = [];
+  const llm = { async *stream() { yield { type: 'reasoning-delta', text: 'private internal reasoning' }; yield { type: 'finish', reason: { kind: 'max-tokens' } }; } };
+  await assert.rejects(() => generateText({ mode: 'dsh', provider: 'p', model: 'm' }, llm, 'system', {}, undefined, { onProgress: x => progress.push(x) }), error => error.code === 'OUTPUT_LIMIT' && error.reasoningChars > 0);
+  assert.ok(!JSON.stringify(progress).includes('private internal reasoning'));
+  assert.equal(progress.at(-1).finishKind, 'max-tokens');
+});
+test('reasoning effort is selected through the actual capability-bound prepared-call contract', async () => {
+  let received;
+  const llm = {
+    stream() { throw new Error('unprepared dispatch'); },
+    async prepareCall(config, _signal, configure) {
+      const chosen = { ...config, ...configure(config, { reasoning: { efforts: [{ id: 'low' }, { id: 'high' }] } }) };
+      return { config: chosen, async *stream(request) { received = request; yield { type: 'text-delta', text: '{}' }; yield { type: 'finish', reason: { kind: 'stop' } }; } };
+    },
+  };
+  await generateText({ mode: 'dsh', provider: 'p', model: 'm' }, llm, 's', {}, undefined, { reasoningEffort: 'low', maxTokens: 24576 });
+  assert.equal(received.reasoningEffort, 'low'); assert.equal(received.maxTokens, 24576);
+});
+test('a truncated director response retries with a larger combined thinking/output budget', async () => {
+  const { planner } = fixture(2); const original = planner.generate; const budgets = [];
+  planner.generate = async (...args) => {
+    if (args[3].stage === 'director') { budgets.push(args[5].maxTokens); if (budgets.length === 1) throw Object.assign(new Error('budget exhausted'), { code: 'OUTPUT_LIMIT' }); }
+    return original(...args);
+  };
+  planner.start(); await planner.preparing;
+  assert.equal(planner.job.status, 'ready'); assert.deepEqual(budgets, [32768, 65536]);
+});
+test('a failed chapter resumes from a persisted draft without repeating the director or completed chapters', async () => {
+  const { planner, store, calls } = fixture(20); const original = planner.generate; let fail = true;
+  planner.generate = async (...args) => {
+    if (args[3].stage === 'script' && args[3].songs[0].position === 9 && fail) throw new Error('temporary transport failure');
+    return original(...args);
+  };
+  planner.start(); await planner.preparing;
+  assert.equal(planner.job.status, 'failed'); assert.ok(store.state.programmeDraft.chapters[0]);
+  const restored = new Store(store.directory); fail = false;
+  const next = new Programme(restored, planner.context, { now: () => now, generate: planner.generate,
+    research: new MusicResearch(restored, { now: () => now, search: planner.research.searchImpl }) });
+  next.start(); await next.preparing;
+  assert.equal(next.job.status, 'ready'); assert.equal(next.current.segments.length, 20);
+  assert.equal(calls.filter(x => x.payload.stage === 'director').length, 1);
+  assert.equal(calls.filter(x => x.payload.stage === 'script' && x.payload.songs[0].position === 1).length, 1);
+  assert.equal(restored.state.programmeDraft, null);
+});
+test('an uncooperative search provider cannot leave preparation hanging forever', async () => {
+  const { store } = fixture(1);
+  const research = new MusicResearch(store, { search: () => new Promise(() => {}), timeoutMs: 15 });
+  const keepAlive = setTimeout(() => {}, 1000);
+  try { const result = await research.song(store.state.library[0]); assert.equal(result.status, 'unavailable'); }
+  finally { clearTimeout(keepAlive); }
 });
 test('TTS synthesis is serialized to avoid a burst of websocket connections', async () => {
   const { store } = fixture(1); let active = 0, peak = 0;

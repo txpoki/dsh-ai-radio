@@ -1,10 +1,11 @@
+import { segueCue, PRE_DUCK_SECONDS } from '../lib/timeline.js';
 const BASE = '/dsh-ai-radio';
 const uid = () => crypto.randomUUID();
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 export async function api(path, body, timeout = 45000) {
   const response = await fetch(BASE + path, { ...(body === undefined ? {} : { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }), signal: AbortSignal.timeout(timeout) });
   const result = await response.json();
-  if (!response.ok) { const error = new Error(result.error || '电台连接暂时不可用'); error.retryAfter = result.retryAfter; throw error; }
+  if (!response.ok) { const error = new Error(result.error || '电台连接暂时不可用'); error.retryAfter = result.retryAfter; error.status = response.status; throw error; }
   return result;
 }
 export function equalPower(size = 64) {
@@ -25,6 +26,7 @@ export class RadioController {
     this.voiceAudio = new Audio(); this.voiceAudio.setAttribute('playsinline', ''); this.speechCache = new Map();
     this.bedAudio = new Audio(); this.bedAudio.loop = true; this.bedAudio.preload = 'auto'; this.bedAudio.setAttribute('playsinline', '');
     this.needsProgramme = true;
+    this.transitionGeneration = 0;
     this.timer = setInterval(() => this.tick(), 1000);
     this.commandTimer = setInterval(() => this.pollCommands(), 2000);
     this.online = () => { if (this.running && this.state.status === 'retrying') { clearTimeout(this.retryTimer); this.advance().catch(e => this.retry(e)); } };
@@ -63,6 +65,10 @@ export class RadioController {
   }
   async startFromPlaylists(ids) {
     this.unlock();
+    const same = JSON.stringify([...ids].sort()) === JSON.stringify([...(this.state.settings.selectedPlaylistIds || [])].sort());
+    if (same && (this.programming || this.state.programmeStatus?.status === 'preparing')) {
+      this.emit({ expanded: true, page: 'radio' }); return this.play();
+    }
     await this.loadLibrary(ids);
     this.emit({ expanded: true, page: 'radio' });
     return this.play();
@@ -72,14 +78,23 @@ export class RadioController {
     if (!this.needsProgramme && !query) return;
     const generation = this.generation;
     const job = (async () => {
-      let status = await api('/programme/start', { query });
+      let status, starting = true, failures = 0;
       while (!this.disposed && generation === this.generation) {
-        this.emit({ programmeStatus: status });
+        try {
+          status = starting ? await api('/programme/start', { query }, 15000) : await api('/programme', undefined, 12000);
+          starting = status.status === 'idle';
+          if (failures) this.emit({ notice: '' });
+          failures = 0;
+        } catch (error) {
+          if (this.disposed || generation !== this.generation) return;
+          failures++;
+          this.emit({ notice: '电台连接暂时中断，正在接回节目进度；已完成的策划会保留。', programmeStatus: { ...this.state.programmeStatus, reconnecting: true } });
+          await wait(Math.min(5000, failures * 1000)); continue;
+        }
+        this.emit({ programmeStatus: { ...status, reconnecting: false } });
         if (status.status === 'ready') { this.needsProgramme = false; return; }
         if (status.status === 'failed' || status.status === 'cancelled') throw new Error(status.error || '节目准备已取消');
         await wait(850);
-        if (generation !== this.generation) return;
-        status = await api('/programme');
       }
     })().finally(() => { if (this.programming === job) this.programming = null; });
     this.programming = job; return job;
@@ -125,6 +140,7 @@ export class RadioController {
     this.running = true; clearTimeout(this.retryTimer);
     if (this.advancing || this.programming) {
       if (this.state.speech) { this.voiceAudio.play().catch(() => {}); window.speechSynthesis?.resume(); this.bedAudio.play().catch(() => {}); }
+      else if (this.programming && this.current < 0) this.bedAudio.play().catch(() => {});
       if (this.current >= 0 && !this.decks[this.current].audio.ended) this.decks[this.current].audio.play().catch(() => {});
       this.emit({ status: this.state.speech ? 'hosting' : this.programming ? 'preparing' : 'playing' }); return;
     }
@@ -139,20 +155,23 @@ export class RadioController {
     if (query) { this.queue = []; this.needsProgramme = true; }
     const generation = this.generation;
     try {
+      if (this.current < 0) await this.startBed();
       await this.ensureProgramme(query);
       if (!this.running || generation !== this.generation) return;
       await this.advance();
     } catch (error) {
-      this.running = false; this.releaseLock?.(); this.emit({ status: 'idle', notice: error.message });
+      if (generation !== this.generation || this.disposed) return;
+      this.running = false; this.stopBed(.8); this.releaseLock?.(); this.emit({ status: 'idle', notice: error.message });
     }
   }
   pause() {
     this.running = false; for (const deck of this.decks) deck.audio.pause(); this.voiceAudio.pause(); this.bedAudio.pause(); window.speechSynthesis?.pause();
-    clearTimeout(this.retryTimer); this.savePosition(); this.releaseLock?.(); this.emit({ status: 'paused' });
+    clearTimeout(this.retryTimer); clearTimeout(this.transitionTimer); this.savePosition(); this.releaseLock?.(); this.emit({ status: 'paused' });
   }
-  stop() {
-    if (this.programming) api('/programme/cancel', {}).catch(() => {});
+  stop({ cancelProgramme = true } = {}) {
+    if (cancelProgramme && this.programming) api('/programme/cancel', {}).catch(() => {});
     this.pause(); this.generation++; this.cancelSpeech(); this.queue = []; this.current = -1;
+    this.transitionGeneration++; clearTimeout(this.transitionTimer);
     this.opening = null; this.needsProgramme = true; this.programming = null; this.stopBed(0);
     clearTimeout(this.fadeTimer); this.crossfading = false;
     for (const deck of this.decks) { deck.segment = null; deck.audio.removeAttribute('src'); deck.audio.load(); }
@@ -160,9 +179,13 @@ export class RadioController {
   }
   async next() {
     if (!this.running) return this.play();
-    if (this.advancing) { this.skipRequested = true; this.cancelSpeech(); return; }
+    if (this.advancing) {
+      if (this.transitioning) { this.forceAdvance = true; this.transitionGeneration++; this.recordCurrent('skipped'); this.cancelSpeech(); }
+      else { this.skipRequested = true; this.cancelSpeech(); }
+      return;
+    }
     this.recordCurrent('skipped'); this.cancelSpeech();
-    try { await this.advance(); } catch (error) { this.retry(error); }
+    try { await this.advance({ immediate: true }); } catch (error) { this.retry(error); }
   }
   async ensureQueue() {
     if (this.queue.length > 1) return;
@@ -194,7 +217,9 @@ export class RadioController {
     if (!speech) return Promise.resolve(null);
     const key = speech.id + JSON.stringify(this.state.settings.tts);
     if (!this.speechCache.has(key)) {
-      this.speechCache.set(key, api('/speech/prepare', { id: speech.id }, 150000).catch(error => { this.speechCache.delete(key); return { provider: 'unavailable', error: error.message }; }));
+      const pending = api('/speech/prepare', { id: speech.id }, 150000).catch(error => { this.speechCache.delete(key); return { provider: 'unavailable', error: error.message }; });
+      pending.then(value => { pending.prepared = value; });
+      this.speechCache.set(key, pending);
       if (this.speechCache.size > 30) this.speechCache.delete(this.speechCache.keys().next().value);
     }
     return this.speechCache.get(key);
@@ -206,18 +231,64 @@ export class RadioController {
     try {
       await this.ensureQueue(); segment = this.queue[0];
       if (!segment || generation !== this.generation || !this.running || this.current < 0) return;
-      this.prepareSpeech(segment.speech);
+      this.prepareSpeech(segment.speech).then(() => this.armTransition());
       const deck = this.decks[1 - this.current];
       await this.prepareDeck(deck, segment);
     } catch (error) {
       if (segment && generation === this.generation && this.queue[0]?.id === segment.id) { this.report(segment, 'failed'); this.queue.shift(); this.emit({ queue: [...this.queue] }); }
-    } finally { this.preparingNext = false; }
+    } finally { this.preparingNext = false; this.armTransition(); }
   }
-  advance() {
+  cue(segment = this.queue[0]) {
+    if (!segment || this.current < 0) return null;
+    const prepared = this.speechCache.get(segment.speech?.id + JSON.stringify(this.state.settings.tts))?.prepared;
+    return segueCue({ outgoingSeconds: this.decks[this.current].audio.duration, incomingSeconds: segment.track.interval,
+      speechSeconds: segment.speech ? prepared?.duration || segment.speech.duration || segment.speech.text.length / (4.2 * this.state.settings.tts.rate) : 0,
+      crossfadeSeconds: this.state.settings.crossfadeSeconds });
+  }
+  armTransition() {
+    clearTimeout(this.transitionTimer);
+    if (!this.running || this.disposed || this.current < 0 || this.advancing || this.crossfading) return;
+    const segment = this.queue[0], deck = this.decks[1 - this.current];
+    if (!segment || deck.segment?.id !== segment.id || deck.audio.readyState < 2) return;
+    const cue = this.cue(segment), delay = cue.triggerAt - this.decks[this.current].audio.currentTime;
+    this.transitionTimer = setTimeout(() => { if (this.running) this.advance().catch(e => this.retry(e)); }, Math.max(0, delay * 1000));
+  }
+  async waitForCue(audio, target, generation, immediate = true, transition) {
+    while (generation === this.generation && !this.disposed && (transition === undefined || transition === this.transitionGeneration)) {
+      if (this.running && ((immediate && this.forceAdvance) || audio.ended || audio.currentTime + .025 >= target)) return true;
+      await wait(40);
+    }
+    return false;
+  }
+  scheduleSpeech(segment, previous, incoming, cue, generation, transition, prepared, musicStarted) {
+    const prior = this.transitionSpeech;
+    const job = (async () => {
+      if (prior) await prior;
+      const at = async target => {
+        if (target <= cue.musicStart) return this.waitForCue(previous.audio, target, generation, false, transition);
+        await musicStarted;
+        return this.waitForCue(incoming.audio, Math.max(0, target - cue.musicStart), generation, false, transition);
+      };
+      const ready = await prepared;
+      if (ready.error || generation !== this.generation || transition !== this.transitionGeneration) return;
+      if (!await at(cue.duckAt)) return;
+      this.duck(true);
+      const duckBegan = Date.now();
+      if (!await at(cue.speechStart)) return;
+      // Late network delivery still gets an audible pre-duck cue.
+      await wait(Math.max(0, PRE_DUCK_SECONDS * 1000 - (Date.now() - duckBegan)));
+      if (generation !== this.generation || transition !== this.transitionGeneration) return;
+      await this.say(segment.speech, false, { prepared: ready, preDucked: true });
+    })().catch(() => {}).finally(() => { if (this.transitionSpeech === job) this.transitionSpeech = null; });
+    this.transitionSpeech = job;
+  }
+  advance({ immediate = false } = {}) {
     if (this.advancing) return this.advancing;
-    this.advancing = this._advance().finally(() => { this.advancing = null; if (this.running) this.prepareNext(); }); return this.advancing;
+    clearTimeout(this.transitionTimer);
+    if (immediate) { clearTimeout(this.fadeTimer); this.crossfading = false; }
+    this.advancing = this._advance(immediate).finally(() => { this.advancing = null; this.transitioning = false; this.forceAdvance = false; if (this.running) this.prepareNext(); }); return this.advancing;
   }
-  async _advance() {
+  async _advance(immediate = false) {
     const generation = this.generation;
     for (let attempts = 0; attempts < 8 && this.running; attempts++) {
       if (!this.queue.length) { await this.ensureQueue(); if (generation !== this.generation) return; }
@@ -229,9 +300,9 @@ export class RadioController {
         if (this.preparingNext) { for (let i = 0; i < 150 && this.preparingNext; i++) await wait(100); }
         await this.prepareDeck(deck, segment);
         if (!this.running || generation !== this.generation) return;
-        this.recordCurrent('played'); this.cancelSpeech();
-        const narrated = !!(this.opening || segment.speech);
+        const narrated = !previous && !!(this.opening || segment.speech);
         if (narrated) {
+          this.cancelSpeech();
           this.emit({ status: 'hosting', upcomingTrack: segment.track });
           await this.startBed();
           if (this.opening) {
@@ -248,16 +319,30 @@ export class RadioController {
             continue;
           }
         }
+        let musicStarted;
+        if (previous) {
+          this.transitioning = true; this.forceAdvance = immediate;
+          const cue = this.cue(segment), transition = ++this.transitionGeneration;
+          if (immediate) Object.assign(cue, { musicStart: previous.audio.currentTime, duckAt: previous.audio.currentTime, speechStart: previous.audio.currentTime + PRE_DUCK_SECONDS });
+          let started;
+          musicStarted = new Promise(resolve => { started = resolve; });
+          this.musicStarted = started;
+          if (segment.speech) this.scheduleSpeech(segment, previous, deck, cue, generation, transition, this.prepareSpeech(segment.speech), musicStarted);
+          if (!await this.waitForCue(previous.audio, cue.musicStart, generation)) { started(); return; }
+        }
         if (segment.seekTo && Number.isFinite(deck.audio.duration)) { deck.audio.currentTime = Math.min(segment.seekTo, Math.max(0, deck.audio.duration - 2)); segment.seekTo = 0; }
         if (this.audioContext) { deck.gain.gain.cancelScheduledValues(this.audioContext.currentTime); deck.gain.gain.value = previous && !previous.audio.ended ? 0 : 1; }
         await deck.audio.play();
+        this.musicStarted?.(); this.musicStarted = null;
         if (!this.running || generation !== this.generation) { deck.audio.pause(); return; }
+        this.recordCurrent('played');
         this.queue.shift(); this.current = deck.index; this.failureCount = 0; this.lastProgressAt = Date.now(); this.lastPosition = 0;
         this.fade(previous, deck, narrated); this.stopBed(1.6);
         this.emit({ track: segment.track, upcomingTrack: null, status: 'playing', queue: [...this.queue], position: 0, duration: deck.audio.duration || segment.track.interval, transitions: this.state.transitions + 1 });
         this.setMediaSession(); this.savePosition();
         return;
       } catch (error) {
+        this.musicStarted?.(); this.musicStarted = null; this.transitionGeneration++; this.cancelSpeech();
         if (error.name === 'NotAllowedError') { this.pause(); this.emit({ notice: '浏览器需要你再次点击播放以启用声音。' }); return; }
         this.report(segment, 'failed'); if (this.queue[0]?.id === segment.id) this.queue.shift();
         this.emit({ notice: error.message, queue: [...this.queue] });
@@ -267,7 +352,7 @@ export class RadioController {
   }
   fade(previous, incoming, narrated = false) {
     clearTimeout(this.fadeTimer);
-    if (!previous || previous === incoming || previous.audio.ended || !this.state.settings.crossfadeSeconds) {
+    if (!previous || previous === incoming || previous.audio.ended || previous.audio.paused || !this.state.settings.crossfadeSeconds) {
       if (previous && previous !== incoming) { previous.audio.pause(); previous.segment = null; }
       if (incoming.gain) {
         const gain = incoming.gain.gain; const now = this.audioContext.currentTime; gain.cancelScheduledValues(now);
@@ -288,7 +373,12 @@ export class RadioController {
   duck(talking) {
     const settings = this.state.settings || { duckVolume: 0.18, volume: 0.75 };
     const value = talking ? settings.duckVolume : 1;
-    if (this.audioContext) { const gain = this.musicBus.gain; gain.cancelScheduledValues(this.audioContext.currentTime); gain.setTargetAtTime(value, this.audioContext.currentTime, talking ? 0.18 : 0.6); }
+    if (this.audioContext) {
+      const gain = this.musicBus.gain, now = this.audioContext.currentTime;
+      if (gain.cancelAndHoldAtTime) gain.cancelAndHoldAtTime(now);
+      else { const current = gain.value; gain.cancelScheduledValues(now); gain.setValueAtTime(current, now); }
+      gain.setTargetAtTime(value, now, talking ? .22 : .65);
+    }
     else { for (const deck of this.decks) deck.audio.volume = value * settings.volume; this.bedAudio.volume = value * settings.volume * settings.bedVolume; }
   }
   async startBed() {
@@ -314,14 +404,19 @@ export class RadioController {
     this.voiceGeneration++; this.voiceAudio.pause(); window.speechSynthesis?.cancel(); this.voiceCancel?.(); this.voiceCancel = null;
     this.duck(false); if (this.state.speech) this.emit({ speech: null });
   }
-  async say(speech, preview = false) {
+  async say(speech, preview = false, options = {}) {
     const token = ++this.voiceGeneration;
     const cancelled = new Promise(resolve => { this.voiceCancel = () => resolve(null); });
-    const prepared = await Promise.race([cancelled, preview ? api('/speech/prepare', { preview: true }, 150000) : this.prepareSpeech(speech)]);
+    const prepared = await Promise.race([cancelled, options.prepared || (preview ? api('/speech/prepare', { preview: true }, 150000) : this.prepareSpeech(speech))]);
     if (!prepared) return;
     while (!preview && !this.running && token === this.voiceGeneration && this.state.status === 'paused') await wait(100);
     if (token !== this.voiceGeneration || (!preview && !this.running)) return;
     if (prepared.error) { this.emit({ notice: '主持音色暂时不可用，音乐继续。' }); return; }
+    if (!options.preDucked) {
+      this.duck(true); await Promise.race([cancelled, wait(PRE_DUCK_SECONDS * 1000)]);
+      while (!preview && !this.running && token === this.voiceGeneration && this.state.status === 'paused') await wait(100);
+      if (token !== this.voiceGeneration || (!preview && !this.running)) return;
+    }
     this.emit({ speech });
     if (prepared.notice) this.emit({ notice: prepared.notice });
     let success = false;
@@ -332,12 +427,10 @@ export class RadioController {
         this.voiceCancel = () => done(false);
         const arm = () => { timer = setTimeout(() => { if (!preview && !this.running) arm(); else done(false); }, 180000); }; arm();
         if (prepared.url) {
-          this.voiceAudio.onplaying = () => this.duck(true);
           this.voiceAudio.src = prepared.url; this.voiceAudio.onended = () => done(true); this.voiceAudio.onerror = () => done(false); this.voiceAudio.play().catch(() => done(false));
         } else {
           if (!window.speechSynthesis) { done(false); return; }
           const utterance = new SpeechSynthesisUtterance(speech.text);
-          utterance.onstart = () => this.duck(true);
           const voices = window.speechSynthesis.getVoices(); const cfg = this.state.settings.tts;
           utterance.voice = voices.find(v => v.voiceURI === cfg.voice || v.name === cfg.voice) || voices.find(v => v.lang.startsWith('zh')) || null;
           utterance.lang = cfg.language || 'zh-CN'; utterance.rate = cfg.rate || 1; utterance.volume = this.state.settings.speechVolume * this.state.settings.volume;
@@ -357,13 +450,13 @@ export class RadioController {
     this.emit({ position: Number.isFinite(audio.currentTime) ? audio.currentTime : 0, duration: Number.isFinite(audio.duration) ? audio.duration : 0 });
     if (!this.running) return;
     if (audio.currentTime !== this.lastPosition) { this.lastPosition = audio.currentTime; this.lastProgressAt = Date.now(); }
-    const remaining = audio.duration - audio.currentTime;
-    if (Number.isFinite(remaining) && remaining <= this.state.settings.crossfadeSeconds && remaining > 0 && !this.crossfading && !this.advancing) {
+    if (Date.now() - (this.lastProgressAt || Date.now()) > 24000 && this.state.status === 'playing' && (!this.advancing || this.transitioning)) { this.failCurrent(); return; }
+    const remaining = audio.duration - audio.currentTime, cue = this.cue();
+    if (cue && Number.isFinite(remaining) && audio.currentTime >= cue.triggerAt && remaining > 0 && !this.crossfading && !this.advancing) {
       const next = this.decks[1 - this.current];
       if (next.segment?.id === this.queue[0]?.id && next.audio.readyState >= 2) this.advance().catch(e => this.retry(e));
     }
     if (!this.crossfading && !this.preparingNext && !this.advancing && this.queue.length) this.prepareNext();
-    if (!this.advancing && Date.now() - (this.lastProgressAt || Date.now()) > 24000 && this.state.status === 'playing') this.failCurrent();
     if (Date.now() - (this.lastSavedAt || 0) > 15000) this.savePosition();
   }
   report(segment, action) { return api('/event', { eventId: uid(), songId: segment.track.id, action, fraction: 0 }).catch(() => {}); }
@@ -374,7 +467,11 @@ export class RadioController {
     api('/event', { eventId: deck.eventId, songId: deck.segment.track.id, action, fraction }).catch(() => {});
   }
   like() { const deck = this.decks[this.current]; if (deck?.segment) { this.report(deck.segment, 'liked'); this.emit({ notice: '已记住：以后多放一点这样的音乐。' }); } }
-  failCurrent() { this.recordCurrent('failed'); this.cancelSpeech(); this.advance().catch(e => this.retry(e)); }
+  failCurrent() {
+    this.recordCurrent('failed'); this.cancelSpeech();
+    if (this.transitioning) { this.transitionGeneration++; this.forceAdvance = true; return; }
+    this.advance({ immediate: true }).catch(e => this.retry(e));
+  }
   retry(error) {
     if (!this.running || this.disposed) return;
     const delay = Math.min(60, error.retryAfter || 5 * 2 ** Math.min(4, this.failureCount || 0)); this.failureCount = (this.failureCount || 0) + 1;
@@ -403,7 +500,7 @@ export class RadioController {
     for (const [key, handler] of Object.entries({ play: () => this.play(), pause: () => this.pause(), nexttrack: () => this.next(), stop: () => this.stop() })) { try { navigator.mediaSession.setActionHandler(key, handler); } catch {} }
   }
   dispose() {
-    this.stop(); this.disposed = true; clearInterval(this.timer); clearInterval(this.commandTimer); clearTimeout(this.fadeTimer); clearTimeout(this.bedTimer);
+    this.stop({ cancelProgramme: false }); this.disposed = true; clearInterval(this.timer); clearInterval(this.commandTimer); clearTimeout(this.fadeTimer); clearTimeout(this.bedTimer); clearTimeout(this.transitionTimer);
     window.removeEventListener('online', this.online); document.removeEventListener('visibilitychange', this.visibility); this.releaseLock?.(); this.audioContext?.close(); this.listeners.clear();
   }
 }

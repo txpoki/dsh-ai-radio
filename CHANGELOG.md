@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.2.2
+
+- Pre-render the episode's narration, measure actual audio durations, and include song/voice cue times in the full script. Reuse synthesized audio from a bounded private disk cache across restarts.
+- Schedule music and narration independently: the next song crossfades on time while the host spans the outgoing tail and incoming intro, eliminating voice-only gaps at normal song boundaries.
+- Duck music about 1.2 seconds before the voice starts and smoothly restore it afterward. Calibrate cues from actual media duration during playback.
+- Add a real-browser long-narration regression that samples both music decks and verifies continuity, overlapping songs, and pre-duck lead time.
+
+## 0.2.1
+
+- Detect thinking/output budget exhaustion explicitly, use capability-bound reasoning controls, and retry with a larger budget instead of treating truncated text as a complete programme.
+- Persist the director brief, follow-up searches and each eight-song script chapter; retries resume completed work.
+- Show model thinking/writing activity and elapsed preparation time. Play soft station BGM during preparation, with working pause/resume.
+- Recover dropped progress requests automatically, retain backend preparation across UI disposal, and avoid restarting the same in-flight playlist.
+- Bound individual research calls and parallelize follow-up checks; add budget, checkpoint, network recovery and startup regressions.
+
 ## 0.2.0
 
 - Prepare a whole-playlist episode before broadcast: per-song web research, AI editorial direction, follow-up searches, global ordering, chapter scripts, a standalone greeting, and a downloadable full script with references.
