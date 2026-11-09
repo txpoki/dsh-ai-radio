@@ -1,102 +1,97 @@
-# Aurora FM · dsh-ai-radio
+# 小鲸电台 · dsh-ai-radio
 
-一个运行在 **DeepSeek Harness / DSH Desktop** 里的私人 AI 电台。登录网易云、选择歌单、按下播放，主持人会根据音乐、天气、时间、收听历史和当天新闻持续编排节目。
+运行在 DeepSeek Harness / DSH Desktop 中的私人音乐电台。选择网易云歌单，让元气鲸鱼少女「小鲸」先准备整期节目，再陪你听歌。
 
-**0.1.1 修复**：解决启用时出现 `pending (waiting for services: required, optional)` 的问题。已在 DSH Desktop 2.0.18 中实际安装并确认插件状态为 `active`。已安装 0.1.0 的用户请更新插件后**完整退出并重新启动 DSH Desktop**；仅开关插件或刷新界面不能清除后台进程缓存的旧模块。
+![小鲸电台](docs/screenshot-desktop.png)
 
-![Aurora FM](docs/screenshot-desktop.png)
+## 0.2.0
 
-## 已实现
+- **先策划，后开播**：检索整份歌单的歌曲与歌手资料，结合当天新闻、天气、当前时间、收听历史与人设，由 AI 编排完整播放顺序、节目章节和逐首串词。编导可以提出扩展搜索，再按章节完成整篇演出稿。
+- **自然少女声**：默认使用 Edge 晓伊神经网络音色，无需密钥；支持晓晓等音色。预设社区「蓝色大肥鱼」Fish Audio 音色，填入自己的 Key 后可切换。保留其他兼容语音服务。
+- **像电台一样衔接**：舒缓背景乐下问候听众 → 介绍第一首 → 音乐渐入。之后主持人接住上首尾奏，音乐自动压低，台词结束后下一首再进入；尾奏结束时用电台背景乐托住口播。
+- **界面精简**：蓝白配色，继承 DSH 字体变量，只保留「正在收听 / 我的歌单 / 设置」。新闻与收听记录继续参与节目编排，不再各占一个页面。
 
-- **网易云账号与歌单**：App 扫码登录，或导入自己的 Cookie；读取创建、收藏和“我喜欢的音乐”，批量补全大歌单；可选择多个歌单组成曲库。
-- **真实曲库选歌**：AI 只能返回曲库中的歌曲 ID；参考歌曲、歌手、专辑、歌单、网易云最近一周历史及本地播放/跳过/喜欢记录。避免近期重复；不可播放的曲目暂时跳过。
-- **上下文主持**：当前时区报时、Open-Meteo 当天与当前天气、关注话题、额外文本、三种主持人格；开场、接歌、简短音乐介绍、新闻与轻松一刻。
-- **当天新闻**：RSS 按需刷新，默认中新网与科技资讯源，支持自定义 RSS；检查当前时区当天的发布时间、过滤未来消息、跨源标题去重；正文保留媒体来源和原文链接。没有可靠新消息时不编造新闻。
-- **声音切换**：系统浏览器音色（无需密钥）、OpenAI 兼容 TTS、Fish Audio；可设置音色、语速，提供试听，按音色缓存生成音频。
-- **持续节目**：提前生成下一批节目、提前载入下一首音乐和下一段口播；双播放器等功率 crossfade；主持讲话时音乐自动 ducking，讲话结束平滑恢复。
-- **恢复与控制**：暂停/继续、下一首、停止、点歌、锁屏媒体控制、播放进度恢复；跨标签页播放锁；取链失败、音频卡顿、AI/TTS/天气/新闻失败时重试或降级；插件卸载清理资源。
-- **DSH 原生接入**：Host 路由、Web UI slots、`ai_radio` 模型工具；直接使用 DSH 已配置的文字模型，也可配置独立兼容接口。
+## 安装
 
-## 安装到 DSH
+需要 Node.js 20.19+，以及提供 webServer、llm 和 Web UI slots 的 DSH Web / Desktop。
 
-需要 Node.js 20.19+，以及支持 `webServer`、UI slots 与 `llm.stream` 的 DSH Web / Desktop。
+### DSH Desktop
 
-### DSH Desktop 安装（推荐）
+打开 **插件 → 添加插件**，输入：
 
-在 DSH Desktop 中打开 **插件 → 添加插件**，输入 `github:txpoki/dsh-ai-radio#main`，或本地安装包 `dsh-ai-radio-0.1.1.tgz` 的完整路径。安装后启用；升级已有版本后完整退出并重新启动 DSH Desktop。
+    github:txpoki/dsh-ai-radio#main
 
-`desktop` profile 由 Electron 应用管理，请使用应用自带的插件管理器；命令行会拒绝直接修改它。
+也可填写本地安装包 **dsh-ai-radio-0.2.0.tgz** 的完整路径。
 
-### Web / 命令行 profile：本地目录安装
+安装、启用后，**完整退出并重新启动 DSH Desktop**。更新已有版本时尤其需要这一步：仅开关插件或刷新界面，后台仍可能缓存旧模块。desktop profile 由 Electron 应用管理，使用内置插件管理器安装。
 
-```powershell
-git clone https://github.com/txpoki/dsh-ai-radio.git
-cd dsh-ai-radio
-pnpm install
-pnpm build
-dsh plugin --profile web add link:C:/完整路径/dsh-ai-radio
-```
+聊天输入框下方会出现「小鲸电台」入口。
 
-将 `web` 改成你的实际命令行 profile。重启 DSH 后，聊天输入区下方会出现 Aurora FM 播放条。
+### Web / 命令行 profile
 
-### Web / 命令行 profile：从 GitHub 仓库安装
+    dsh plugin --profile web add "github:txpoki/dsh-ai-radio#main"
 
-```sh
-dsh plugin --profile web add "github:txpoki/dsh-ai-radio#main"
-```
+将 web 换成实际命令行 profile；GitHub 源安装需要 Git 已加入 PATH。
 
-仓库现已公开；从 GitHub 安装需要本机已安装 Git 并加入 PATH。构建后的 `lib/client.js` 已提交，不需要用户在安装后额外编译。升级时按 DSH 自身的插件更新流程操作。
+## 开始今天的电台
 
-## 第一次开台
+1. 打开「我的歌单」，用网易云音乐 App 扫码登录；也可导入自己的登录 Cookie。
+2. 在歌单旁点击 **从这个歌单开始今日电台**；多个歌单可勾选后一起开始。
+3. 小鲸先逐首查资料、构思整期顺序、扩展查证，再分章写完开场和每首歌的串场。界面显示真实阶段与进度，可以取消。长歌单首次准备可能需要数分钟，之后会复用已查到的音乐资料。
+4. 整期稿件准备好后自动开播，无需再点一次播放。开场背景音乐、主持问候、第一首介绍和歌曲依次进入。
 
-1. 打开 **我的歌单**，使用网易云音乐 App 扫码；勾选歌单，点击“用这些歌单开台”。
-2. 打开 **电台设置**，确认城市、时区、主持人格及音色。DSH 模式会从已配置提供方中选择可用文字模型，也可以手动选择。独立预览使用外部接口模式。
-3. 在“正在收听”点击播放。这次点击用于解锁浏览器音频；之后自动续播。
-4. 给“补充信息”写下今天的状态或希望，例如：“今天写代码，少说一点，偏舒缓的歌”。
+首次点击用于解锁浏览器音频。暂停后可以继续，支持切歌、锁屏媒体控制和跨标签页播放锁；刷新页面不会自动发声。歌曲无法播放时跳过；已编排的节目持续播放，接近结尾时后台准备下一期，准备失败则继续复用已有稿件，并移除过期或已播新闻。
 
-系统音色取决于操作系统和浏览器安装的声音。如果没有合适的中文声音，可切换兼容 TTS 或 Fish。不同服务的音色名称与模型由服务商实际支持情况决定。
+## 主持音色
 
-### 在 DSH 对话中控制
+默认 **自然少女声 → 晓伊**；「设置」里可保存并直接试听。语速默认 1.02×，音调轻微上扬。
 
-模型工具 `ai_radio` 的动作：`play`、`pause`、`resume`、`next`、`stop`、`request`。
+**大肥鱼预设**来自开源项目 [dafeiyu-ai-vtuber 的配置](https://github.com/zbsdsb/dafeiyu-ai-vtuber/blob/dafeiyu/config.json)：
 
-```json
-{"action":"request","query":"想听歌单里的周杰伦，接下来少说一点"}
-```
+| 配置 | 值 |
+|---|---|
+| 服务 | Fish Audio |
+| 音色 | 蓝色大肥鱼 |
+| Reference ID | fe50cdf3040449298470d58ff0991e1d |
+| 默认模型 | s2.1-pro-free |
 
-首次音频播放仍需点击 UI；点歌范围为所选歌单，不会自动加入未知音源。
+此预设需要自己的 Fish Audio Key，是否可用以及额度以服务商为准；本仓库不分发该声音的模型权重或参考录音。[Fish 官方接口](https://docs.fish.audio/api-reference/endpoint/openapi-v1/text-to-speech)提供模型与韵律参数说明。
 
-## 本地预览与开发
+相关插件研究：[dsh-voice-horn](https://github.com/1DAdidi/dsh-voice-horn) 和 [dsh-dafeiyu-emotion](https://github.com/LiDu-china/dsh-dafeiyu-emotion) 都采用过 Edge 在线自然语音；本插件独立合成，不需要同时安装它们。
 
-```sh
-pnpm install
-pnpm build
-pnpm dev       # http://127.0.0.1:4173，真实登录与配置
-pnpm demo      # 同地址，演示歌单、合成测试音频、演示资讯
-pnpm test
-pnpm check
-pnpm test:browser
-```
+口播文本会发送至所选语音服务。Edge 会读取现有代理环境变量；Windows 没有对应变量时，读取已启用的系统代理，不修改系统设置。语音请求排队合成并缓存；服务限流或故障时不会偷偷换成机械的系统音色。Fish/其他兼容服务失败时可回退到自然女声，均不可用时保留音乐并显示提示。
 
-预览默认仅监听 127.0.0.1，不会打开公网访问。`pnpm demo` 是明确标注的演示模式：曲名、歌手、天气和新闻均为演示数据，音乐为程序合成，口播为测试提示音。它验证播放器与 UI，不代表真实网易云或 TTS 已连接。
+## 策划与节目稿
 
-浏览器测试使用 Playwright，自动查找本机 Chrome/Edge，或使用 `RADIO_BROWSER_EXECUTABLE` 指定可执行文件。无本机浏览器时先运行 `pnpm exec playwright install chromium`。
+优先复用 DSH 的 web 搜索服务及其已配置提供方；独立预览没有该服务时可使用公开 Bing RSS 搜索。模型不能凭记忆冒充搜索结果：每首背景保留来源 URL、摘要与检索时间；没有可靠资料的歌曲只介绍已知歌名、歌手和专辑。
 
-## 数据与接口
+编导先决定全歌单顺序、章节与编辑说明，再按每章最多 16 首撰写完整稿件。歌曲 ID 只能来自实际曲库，缺失曲目会补齐，防止大歌单被截成四首。播放阶段按既定顺序领取稿件，四首只是传输批量，不会临场重新随机选四首。
 
-- DSH 数据目录：`${DSH_HOME}/ai-radio`，未设置则是 `~/.dsh/ai-radio`。
-- 本地预览：项目的 `.radio-data/local`。演示隔离在 `.radio-data/demo`。
-- `AI_RADIO_DATA_DIR` 可覆盖目录；目录和状态文件以 0700/0600 创建，Windows 继承当前用户目录 ACL。
-- Cookie 和 API Key 仅保存在 Host 状态中，不写入源码和 Git；配置查询返回 `hasKey`，不返回密钥。
-- 历史最多 2000 条，主持口播最多 200 条；音频缓存位于内存，并有数量上限。
-- 主要 API 在 `/dsh-ai-radio/` 下：`bootstrap`、`settings`、`login/qr`、`login/poll`、`playlists`、`library`、`context`、`plan`、`speech/prepare`、`event`、`history`。所有写请求使用 JSON 并验证同源。
+默认人设与编导规范位于 [lib/prompts.js](lib/prompts.js)；也可在「设置 → 主持人设」修改。新闻取当前时区当天的 RSS，附媒体与原文来源；开场问候和第一首介绍之间不插新闻。轻松一刻按节目节奏编排。
 
-结构与测试边界见 [docs/architecture.md](docs/architecture.md) 和 [docs/verification.md](docs/verification.md)。
+完整稿件、全歌单顺序与来源会保存在插件本机数据目录。可在设置里 **下载本期完整节目稿**，无须显示额外资讯页面。
 
-## 使用边界
+## 开发与验证
 
-- “持续播放”需要 DSH Host 与播放页面保持运行，系统音频可用。关闭页面、设备睡眠、断网或平台侧限制不能由插件绕过。临时上游故障会重试；整库都不可播放时会退避等待，不制造假播放状态。
-- 音乐按本人账号实际权限取链。只返回试听片段、无版权或取链失败的歌曲自动跳过，不做解灰或绕过付费权限。是否能播放某首 VIP 歌需要用实际账号验证。
-- 开源软件不等于服务免费。DSH 模型、外部文字 API、OpenAI 兼容语音或 Fish 的费用由你配置的服务商决定。系统音色不需要插件额外 API Key。
-- 新闻是按需刷新和按节目间隔插播，不是广播级紧急事件预警；未确认当天日期的条目不会播报。音乐掌故没有来源时，主持人只讲可从输入数据判断的氛围与衔接。
-- 本仓库不会存储或分发完整歌曲文件，代码采用 MIT；第三方代码与许可见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
+    pnpm install
+    pnpm build
+    pnpm check
+    pnpm test
+    pnpm test:browser
+
+    # 本地演示
+    pnpm demo
+
+演示仅监听 127.0.0.1。演示曲名、歌手、新闻是明确标注的测试数据，音乐与提示音为程序生成，不能代替真实账号、真实模型和真实 TTS 的验证。构建后的 lib/client.js 已提交，安装时无需用户编译。
+
+运行记录见 [docs/verification.md](docs/verification.md)。
+
+## 数据与播放权限
+
+- 登录 Cookie、Key、收听记录、音乐资料和节目稿保存在本机插件数据目录，默认 ~/.dsh/ai-radio；不会提交至 GitHub。浏览器只能获得密钥是否已设置的状态。
+- 策划时所选歌单的歌曲、收听偏好、天气城市与补充说明会发给已配置的主持模型；音乐查询会发给搜索提供方。
+- 音乐按本人网易云账号实际权限取链；试听片段、无版权或取链失败曲目跳过，不绕过 VIP、数字专辑或地区限制。
+- 后台接口位于 /dsh-ai-radio/，写请求要求同源 JSON。卸载会清理播放资源、路由和任务。
+- 默认背景乐由本项目自行合成，不含下载的商用音乐或第三方采样。
+
+MIT；第三方来源见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。软件许可不覆盖第三方歌曲、音色与 API 服务的权利。

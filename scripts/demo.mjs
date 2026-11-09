@@ -13,8 +13,12 @@ export function attachDemo(service, { seconds = 35 } = {}) {
   service.store.state.settings.selectedPlaylistIds=['1','2','3'];
   service.store.state.settings.crossfadeSeconds=Math.min(6,seconds/4);
   service.context.assemble=async()=>({now:Date.now(),localTime:new Date().toLocaleString('zh-CN',{timeZone:'Asia/Shanghai'}),weather:{city:'上海',temperature:21,description:'多云（演示）',low:17,high:24,rain:10,source:'演示数据'},news:[{id:'demo-news',title:'这是一条本地演示资讯，不是真实新闻',summary:'本预览用于验证界面、声音与歌曲过渡。连接真实账号后，会读取当天的实际新闻来源。',url:'https://github.com/txpoki/dsh-ai-radio',publishedAt:Date.now(),source:'演示数据',category:'演示'}],interests:'音乐、生活',extraContext:'演示',newsFailures:[]});
-  service.planner.generate=async(_cfg,_llm,_prompt,payload)=>JSON.stringify({songs:payload.candidates.slice(0,4).map((x,i)=>({id:x.id,intro:['沿着这段旋律，给忙碌的今天留一点空白。','换一首轻快的歌，继续向前。','这段音乐适合慢下来，听听自己的节奏。','让下一段旋律，陪我们走远一点。'][i]})),opening:'这里是 Aurora FM 的本地演示，所有音乐都是合成测试音频。',joke:'音乐播放器最擅长的一件事，就是遇到难题的时候先暂停一下。'});
-  service.speech.prepare=async()=>{const id=randomUUID();service.speech.audio.set(id,{bytes:wav(.45,440),type:'audio/wav'});return{provider:'demo',url:'/dsh-ai-radio/speech/audio/'+id};};
+  service.planner.research.searchImpl=async()=>[{title:'本地合成音乐演示资料',url:'https://example.com/radio-demo',summary:'仅供测试的歌曲资料，不对应真实歌手、歌曲或新闻。'}];
+  service.planner.generate=async(_cfg,_llm,_prompt,payload)=>{
+    if(payload.stage==='director')return JSON.stringify({title:'小鲸的今日电台 · 演示',editorialNotes:'本地合成音频用于验证整期策划、开场和口播衔接。',arc:[{title:'慢慢出发',purpose:'从轻柔的开场逐渐展开。'},{title:'沿途风景',purpose:'保持流动感。'},{title:'晚风来信',purpose:'舒缓收束。'}],order:payload.songs.map(x=>x.id),researchQueries:[]});
+    return JSON.stringify({opening:'听众朋友们，大家好！我是小鲸。这里是电台本地演示，音乐和语音均为合成测试音频。',songs:payload.songs.map((x,i)=>({id:x.id,intro:'刚刚的旋律先收进耳朵，接下来一起听《'+x.title+'》。这首也来自今天的演示歌单。',sourceIds:x.sources.slice(0,1).map(s=>s.id),joke:x.humorSlot?'小鲸今天准备了好多歌，连海浪都排着队来听啦。':''}))});
+  };
+  service.speech.prepare=async()=>{const id=randomUUID();service.speech.audio.set(id,{bytes:wav(.9,440),type:'audio/wav'});return{provider:'demo',url:'/dsh-ai-radio/speech/audio/'+id};};
   service.music.loadLibrary=async(ids)=>{service.store.state.settings.selectedPlaylistIds=ids;return{count:songs.length,failures:[]};};
   service.music.syncPlaylists=async()=>service.store.state.playlists;
   service.music.logout=()=>{};

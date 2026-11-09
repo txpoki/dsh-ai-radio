@@ -23,6 +23,8 @@ export class RadioController {
       return deck;
     });
     this.voiceAudio = new Audio(); this.voiceAudio.setAttribute('playsinline', ''); this.speechCache = new Map();
+    this.bedAudio = new Audio(); this.bedAudio.loop = true; this.bedAudio.preload = 'auto'; this.bedAudio.setAttribute('playsinline', '');
+    this.needsProgramme = true;
     this.timer = setInterval(() => this.tick(), 1000);
     this.commandTimer = setInterval(() => this.pollCommands(), 2000);
     this.online = () => { if (this.running && this.state.status === 'retrying') { clearTimeout(this.retryTimer); this.advance().catch(e => this.retry(e)); } };
@@ -47,8 +49,8 @@ export class RadioController {
   async saveSettings(patch) {
     const previous = this.state.settings;
     const settings = await api('/settings', patch);
-    const replan = ['hostId', 'city', 'timezone', 'interests', 'extraContext', 'llm', 'speechEvery', 'humorEvery', 'newsMinutes'].some(key => JSON.stringify(previous[key]) !== JSON.stringify(settings[key]));
-    if (replan) { this.generation++; this.queue = []; }
+    const replan = ['hostId', 'persona', 'city', 'timezone', 'interests', 'extraContext', 'llm', 'humorEvery', 'newsMinutes', 'customFeeds'].some(key => JSON.stringify(previous[key]) !== JSON.stringify(settings[key]));
+    if (replan) { this.queue = []; this.needsProgramme = true; }
     if (JSON.stringify(previous.tts) !== JSON.stringify(settings.tts)) this.speechCache.clear();
     this.emit({ settings, ...(replan ? { queue: [] } : {}) });
     if (this.audioContext) { this.master.gain.setTargetAtTime(settings.volume, this.audioContext.currentTime, 0.1); this.voiceGain.gain.value = settings.speechVolume; }
@@ -58,6 +60,29 @@ export class RadioController {
   async loadLibrary(ids) {
     this.stop(); const result = await api('/library', { ids }, 180000); await this.refresh();
     this.emit({ notice: `已载入 ${result.count} 首歌曲${result.failures.length ? '，部分歌单读取失败' : ''}` }); return result;
+  }
+  async startFromPlaylists(ids) {
+    this.unlock();
+    await this.loadLibrary(ids);
+    this.emit({ expanded: true, page: 'radio' });
+    return this.play();
+  }
+  async ensureProgramme(query = '') {
+    if (this.programming) return this.programming;
+    if (!this.needsProgramme && !query) return;
+    const generation = this.generation;
+    const job = (async () => {
+      let status = await api('/programme/start', { query });
+      while (!this.disposed && generation === this.generation) {
+        this.emit({ programmeStatus: status });
+        if (status.status === 'ready') { this.needsProgramme = false; return; }
+        if (status.status === 'failed' || status.status === 'cancelled') throw new Error(status.error || '节目准备已取消');
+        await wait(850);
+        if (generation !== this.generation) return;
+        status = await api('/programme');
+      }
+    })().finally(() => { if (this.programming === job) this.programming = null; });
+    this.programming = job; return job;
   }
   graph() {
     if (this.audioContext) return;
@@ -70,6 +95,8 @@ export class RadioController {
     this.analyser = ctx.createAnalyser(); this.analyser.fftSize = 128; this.master.connect(this.analyser); this.analyser.connect(ctx.destination);
     for (const deck of this.decks) { deck.gain = ctx.createGain(); deck.gain.gain.value = 0; ctx.createMediaElementSource(deck.audio).connect(deck.gain); deck.gain.connect(this.musicBus); }
     ctx.createMediaElementSource(this.voiceAudio).connect(this.voiceGain);
+    this.bedGain = ctx.createGain(); this.bedGain.gain.value = 0; this.bedGain.connect(this.musicBus);
+    ctx.createMediaElementSource(this.bedAudio).connect(this.bedGain);
   }
   unlock() {
     this.graph(); this.audioContext?.resume().catch(() => {});
@@ -77,7 +104,7 @@ export class RadioController {
       this.unlocked = true;
       // Prime each element inside the original click for browsers that require it.
       const silent = 'data:audio/wav;base64,UklGRiYAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQIAAAAAAA==';
-      for (const audio of [...this.decks.map(x => x.audio), this.voiceAudio]) { audio.src = silent; audio.play().then(() => { if (!this.running) audio.pause(); }).catch(() => {}); }
+      for (const audio of [...this.decks.map(x => x.audio), this.voiceAudio, this.bedAudio]) { audio.src = silent; audio.play().then(() => { if (!this.running) audio.pause(); }).catch(() => {}); }
     }
   }
   async acquire() {
@@ -96,6 +123,11 @@ export class RadioController {
     if (!this.state.libraryCount) { this.emit({ expanded: true, page: 'library', notice: '先登录网易云并选择歌单，就可以开台。' }); return; }
     if (!await this.acquire()) { this.emit({ notice: '电台正在另一个标签页播放，请先在那里暂停。' }); return; }
     this.running = true; clearTimeout(this.retryTimer);
+    if (this.advancing || this.programming) {
+      if (this.state.speech) { this.voiceAudio.play().catch(() => {}); window.speechSynthesis?.resume(); this.bedAudio.play().catch(() => {}); }
+      if (this.current >= 0 && !this.decks[this.current].audio.ended) this.decks[this.current].audio.play().catch(() => {});
+      this.emit({ status: this.state.speech ? 'hosting' : this.programming ? 'preparing' : 'playing' }); return;
+    }
     if (this.current >= 0 && this.decks[this.current].segment && !query) {
       try {
         await this.decks[this.current].audio.play();
@@ -104,25 +136,31 @@ export class RadioController {
       } catch (error) { this.pause(); this.emit({ notice: '请再点击一次播放以启用声音。' }); return; }
     }
     this.emit({ status: 'preparing', notice: '' }); this.nextQuery = query;
-    if (query) { this.queue = []; this.generation++; }
-    if (!query && this.current < 0 && !this.queue.length && this.state.resumeTrack && this.state.playback?.position > 2) {
-      this.queue.push({ id: uid(), track: this.state.resumeTrack, speech: null, seekTo: this.state.playback.position });
-      this.emit({ resumeTrack: null });
+    if (query) { this.queue = []; this.needsProgramme = true; }
+    const generation = this.generation;
+    try {
+      await this.ensureProgramme(query);
+      if (!this.running || generation !== this.generation) return;
+      await this.advance();
+    } catch (error) {
+      this.running = false; this.releaseLock?.(); this.emit({ status: 'idle', notice: error.message });
     }
-    try { await this.advance(); } catch (error) { this.retry(error); }
   }
   pause() {
-    this.running = false; for (const deck of this.decks) deck.audio.pause(); this.voiceAudio.pause(); window.speechSynthesis?.pause();
+    this.running = false; for (const deck of this.decks) deck.audio.pause(); this.voiceAudio.pause(); this.bedAudio.pause(); window.speechSynthesis?.pause();
     clearTimeout(this.retryTimer); this.savePosition(); this.releaseLock?.(); this.emit({ status: 'paused' });
   }
   stop() {
+    if (this.programming) api('/programme/cancel', {}).catch(() => {});
     this.pause(); this.generation++; this.cancelSpeech(); this.queue = []; this.current = -1;
+    this.opening = null; this.needsProgramme = true; this.programming = null; this.stopBed(0);
     clearTimeout(this.fadeTimer); this.crossfading = false;
     for (const deck of this.decks) { deck.segment = null; deck.audio.removeAttribute('src'); deck.audio.load(); }
     this.emit({ status: 'idle', track: null, queue: [], position: 0, duration: 0, speech: null });
   }
   async next() {
     if (!this.running) return this.play();
+    if (this.advancing) { this.skipRequested = true; this.cancelSpeech(); return; }
     this.recordCurrent('skipped'); this.cancelSpeech();
     try { await this.advance(); } catch (error) { this.retry(error); }
   }
@@ -131,9 +169,10 @@ export class RadioController {
     if (this.filling) return this.filling;
     const generation = this.generation;
     const query = this.nextQuery || ''; this.nextQuery = '';
-    this.filling = api('/plan', { requestId: uid(), opening: this.current < 0, query }).then(batch => {
+    this.filling = (async () => { await this.ensureProgramme(query); return api('/plan', { requestId: uid(), opening: this.current < 0, query }); })().then(batch => {
       if (this.disposed || generation !== this.generation) return;
-      this.queue.push(...batch.segments); this.emit({ queue: [...this.queue], context: batch.context, host: batch.host, batchMode: batch.mode, notice: batch.notice || '' });
+      this.queue.push(...batch.segments); if (batch.opening) { this.opening = batch.opening; this.prepareSpeech(batch.opening); }
+      this.emit({ queue: [...this.queue], context: batch.context, host: batch.host, batchMode: batch.mode, programmeTitle: batch.programmeTitle, notice: batch.notice || '' });
     }).finally(() => { this.filling = null; });
     return this.filling;
   }
@@ -155,7 +194,7 @@ export class RadioController {
     if (!speech) return Promise.resolve(null);
     const key = speech.id + JSON.stringify(this.state.settings.tts);
     if (!this.speechCache.has(key)) {
-      this.speechCache.set(key, api('/speech/prepare', { id: speech.id }, 18000).catch(error => ({ provider: 'browser', text: speech.text, ...this.state.settings.tts, error: error.message, fallback: true })));
+      this.speechCache.set(key, api('/speech/prepare', { id: speech.id }, 150000).catch(error => { this.speechCache.delete(key); return { provider: 'unavailable', error: error.message }; }));
       if (this.speechCache.size > 30) this.speechCache.delete(this.speechCache.keys().next().value);
     }
     return this.speechCache.get(key);
@@ -190,16 +229,33 @@ export class RadioController {
         if (this.preparingNext) { for (let i = 0; i < 150 && this.preparingNext; i++) await wait(100); }
         await this.prepareDeck(deck, segment);
         if (!this.running || generation !== this.generation) return;
+        this.recordCurrent('played'); this.cancelSpeech();
+        const narrated = !!(this.opening || segment.speech);
+        if (narrated) {
+          this.emit({ status: 'hosting', upcomingTrack: segment.track });
+          await this.startBed();
+          if (this.opening) {
+            const opening = this.opening; this.opening = null;
+            await this.say(opening);
+          }
+          if (generation !== this.generation) return;
+          if (segment.speech && !this.skipRequested) await this.say(segment.speech);
+          while (!this.running && generation === this.generation && !this.disposed) await wait(100);
+          if (generation !== this.generation) return;
+          if (this.skipRequested) {
+            this.skipRequested = false; this.report(segment, 'skipped');
+            if (this.queue[0]?.id === segment.id) this.queue.shift();
+            continue;
+          }
+        }
         if (segment.seekTo && Number.isFinite(deck.audio.duration)) { deck.audio.currentTime = Math.min(segment.seekTo, Math.max(0, deck.audio.duration - 2)); segment.seekTo = 0; }
         if (this.audioContext) { deck.gain.gain.cancelScheduledValues(this.audioContext.currentTime); deck.gain.gain.value = previous && !previous.audio.ended ? 0 : 1; }
         await deck.audio.play();
         if (!this.running || generation !== this.generation) { deck.audio.pause(); return; }
-        this.recordCurrent('played'); this.cancelSpeech();
         this.queue.shift(); this.current = deck.index; this.failureCount = 0; this.lastProgressAt = Date.now(); this.lastPosition = 0;
-        this.fade(previous, deck);
-        this.emit({ track: segment.track, status: 'playing', queue: [...this.queue], position: 0, duration: deck.audio.duration || segment.track.interval, transitions: this.state.transitions + 1 });
+        this.fade(previous, deck, narrated); this.stopBed(1.6);
+        this.emit({ track: segment.track, upcomingTrack: null, status: 'playing', queue: [...this.queue], position: 0, duration: deck.audio.duration || segment.track.interval, transitions: this.state.transitions + 1 });
         this.setMediaSession(); this.savePosition();
-        if (segment.speech) this.say(segment.speech).catch(() => {});
         return;
       } catch (error) {
         if (error.name === 'NotAllowedError') { this.pause(); this.emit({ notice: '浏览器需要你再次点击播放以启用声音。' }); return; }
@@ -209,11 +265,14 @@ export class RadioController {
     }
     if (this.running) throw new Error('连续多首无法播放，稍后自动重试');
   }
-  fade(previous, incoming) {
+  fade(previous, incoming, narrated = false) {
     clearTimeout(this.fadeTimer);
     if (!previous || previous === incoming || previous.audio.ended || !this.state.settings.crossfadeSeconds) {
       if (previous && previous !== incoming) { previous.audio.pause(); previous.segment = null; }
-      if (incoming.gain) incoming.gain.gain.value = 1;
+      if (incoming.gain) {
+        const gain = incoming.gain.gain; const now = this.audioContext.currentTime; gain.cancelScheduledValues(now);
+        gain.setValueAtTime(narrated ? 0 : 1, now); if (narrated) gain.linearRampToValueAtTime(1, now + 1.4);
+      }
       return;
     }
     const seconds = Math.min(this.state.settings.crossfadeSeconds, Math.max(0.1, previous.audio.duration - previous.audio.currentTime), Math.max(0.1, incoming.audio.duration / 2));
@@ -230,7 +289,26 @@ export class RadioController {
     const settings = this.state.settings || { duckVolume: 0.18, volume: 0.75 };
     const value = talking ? settings.duckVolume : 1;
     if (this.audioContext) { const gain = this.musicBus.gain; gain.cancelScheduledValues(this.audioContext.currentTime); gain.setTargetAtTime(value, this.audioContext.currentTime, talking ? 0.18 : 0.6); }
-    else for (const deck of this.decks) deck.audio.volume = value * settings.volume;
+    else { for (const deck of this.decks) deck.audio.volume = value * settings.volume; this.bedAudio.volume = value * settings.volume * settings.bedVolume; }
+  }
+  async startBed() {
+    clearTimeout(this.bedTimer);
+    if (!this.bedAudio.src.includes('/bed/audio')) { this.bedAudio.src = BASE + '/bed/audio'; this.bedAudio.load(); }
+    if (this.bedGain) {
+      const gain = this.bedGain.gain, now = this.audioContext.currentTime;
+      gain.cancelScheduledValues(now); gain.setTargetAtTime(this.state.settings.bedVolume, now, 0.2);
+    } else this.bedAudio.volume = this.state.settings.bedVolume * this.state.settings.volume;
+    await this.bedAudio.play().catch(() => {});
+  }
+  stopBed(seconds = 0) {
+    clearTimeout(this.bedTimer);
+    if (this.bedGain) {
+      const gain = this.bedGain.gain, now = this.audioContext.currentTime; gain.cancelScheduledValues(now);
+      if (seconds) { gain.setValueAtTime(gain.value, now); gain.linearRampToValueAtTime(0, now + seconds); }
+      else gain.value = 0;
+    }
+    if (seconds) this.bedTimer = setTimeout(() => this.bedAudio.pause(), seconds * 1000 + 30);
+    else this.bedAudio.pause();
   }
   cancelSpeech() {
     this.voiceGeneration++; this.voiceAudio.pause(); window.speechSynthesis?.cancel(); this.voiceCancel?.(); this.voiceCancel = null;
@@ -238,22 +316,28 @@ export class RadioController {
   }
   async say(speech, preview = false) {
     const token = ++this.voiceGeneration;
-    const prepared = preview ? await api('/speech/prepare', { preview: true }) : await this.prepareSpeech(speech);
+    const cancelled = new Promise(resolve => { this.voiceCancel = () => resolve(null); });
+    const prepared = await Promise.race([cancelled, preview ? api('/speech/prepare', { preview: true }, 150000) : this.prepareSpeech(speech)]);
+    if (!prepared) return;
+    while (!preview && !this.running && token === this.voiceGeneration && this.state.status === 'paused') await wait(100);
     if (token !== this.voiceGeneration || (!preview && !this.running)) return;
-    this.duck(true); this.emit({ speech });
-    if (prepared.error) this.emit({ notice: prepared.error + '；本段改用系统音色。' });
+    if (prepared.error) { this.emit({ notice: '主持音色暂时不可用，音乐继续。' }); return; }
+    this.emit({ speech });
+    if (prepared.notice) this.emit({ notice: prepared.notice });
     let success = false;
     try {
       success = await new Promise(resolve => {
         let timer;
-        const done = ok => { clearTimeout(timer); this.voiceAudio.onended = null; this.voiceAudio.onerror = null; resolve(ok); };
+        const done = ok => { clearTimeout(timer); this.voiceAudio.onended = null; this.voiceAudio.onerror = null; this.voiceAudio.onplaying = null; resolve(ok); };
         this.voiceCancel = () => done(false);
-        const arm = () => { timer = setTimeout(() => { if (!preview && !this.running) arm(); else done(false); }, 90000); }; arm();
+        const arm = () => { timer = setTimeout(() => { if (!preview && !this.running) arm(); else done(false); }, 180000); }; arm();
         if (prepared.url) {
+          this.voiceAudio.onplaying = () => this.duck(true);
           this.voiceAudio.src = prepared.url; this.voiceAudio.onended = () => done(true); this.voiceAudio.onerror = () => done(false); this.voiceAudio.play().catch(() => done(false));
         } else {
           if (!window.speechSynthesis) { done(false); return; }
           const utterance = new SpeechSynthesisUtterance(speech.text);
+          utterance.onstart = () => this.duck(true);
           const voices = window.speechSynthesis.getVoices(); const cfg = this.state.settings.tts;
           utterance.voice = voices.find(v => v.voiceURI === cfg.voice || v.name === cfg.voice) || voices.find(v => v.lang.startsWith('zh')) || null;
           utterance.lang = cfg.language || 'zh-CN'; utterance.rate = cfg.rate || 1; utterance.volume = this.state.settings.speechVolume * this.state.settings.volume;
@@ -266,7 +350,7 @@ export class RadioController {
     if (success && !preview) api('/speech/heard', { id: speech.id }).catch(() => {});
     if (!success && token === this.voiceGeneration && this.running) this.emit({ notice: '这段口播暂时无法播放，音乐继续。可在设置中切换音色服务。' });
   }
-  previewVoice() { this.unlock(); this.cancelSpeech(); return this.say({ id: 'preview', text: '你好，这里是你的私人音乐电台。接下来，把时间交给音乐。', type: 'preview' }, true); }
+  previewVoice() { this.unlock(); this.cancelSpeech(); return this.say({ id: 'preview', text: '听众朋友们，大家好！我是小鲸。今天也攒了好多好听的歌想分享给你。我们的电台，现在开始。', type: 'preview' }, true); }
   tick() {
     if (this.disposed || this.current < 0) return;
     const deck = this.decks[this.current]; const audio = deck.audio;
@@ -319,7 +403,7 @@ export class RadioController {
     for (const [key, handler] of Object.entries({ play: () => this.play(), pause: () => this.pause(), nexttrack: () => this.next(), stop: () => this.stop() })) { try { navigator.mediaSession.setActionHandler(key, handler); } catch {} }
   }
   dispose() {
-    this.stop(); this.disposed = true; clearInterval(this.timer); clearInterval(this.commandTimer); clearTimeout(this.fadeTimer);
+    this.stop(); this.disposed = true; clearInterval(this.timer); clearInterval(this.commandTimer); clearTimeout(this.fadeTimer); clearTimeout(this.bedTimer);
     window.removeEventListener('online', this.online); document.removeEventListener('visibilitychange', this.visibility); this.releaseLock?.(); this.audioContext?.close(); this.listeners.clear();
   }
 }

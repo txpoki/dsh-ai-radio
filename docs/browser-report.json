@@ -1,26 +1,147 @@
 {
-  "startedAt": "2026-11-09T06:34:40.668Z",
+  "startedAt": "2026-11-09T09:02:15.206Z",
   "checks": [
-    "One-click start, actual audio playback and speech completion",
-    "Pause preserves position and Play resumes",
-    "Settings changes keep current playback and refill subsequent programs",
-    "Both real audio decks overlap during the scheduled crossfade",
-    "Responsive mobile layout and exclusive cross-tab playback ownership",
-    "Stall watchdog advances to another playable track",
-    "24-track endurance across multiple automatic AI program refills",
-    "Playback and failed-track history persist during endurance run",
-    "Reload restores settings without unsolicited autoplay",
-    "No browser JavaScript errors"
+    "Three compact tabs, no news/history page and native DSH font variable",
+    "Playlist start prepares the whole programme; greeting and first intro play over BGM before the first song",
+    "Pause/resume during the opening freezes and restores both voice and background music",
+    "The complete 12-song episode is prepared and exportable before playback",
+    "Real Web Audio music bus ducks under the voice while a station bed preserves continuity",
+    "Music smoothly returns to normal gain after the voice ends",
+    "Music pause/resume and changing the natural voice preserve continuous playback",
+    "Mobile layout fits and a second tab cannot steal audio ownership",
+    "A stalled music track advances without interrupting the episode",
+    "24-track endurance crosses a full episode boundary with prepared transitions and continuous audio",
+    "Reload never autoplays; no browser JavaScript errors",
+    "Stop cancels a voice preparation wait immediately and delayed TTS cannot restart the radio"
   ],
   "metrics": {
     "status": "playing",
     "transitions": 24,
-    "spoken": 17,
-    "queue": 4,
-    "audioTime": 0.008,
+    "spoken": 25,
     "audioState": "running",
-    "host": "city"
+    "voice": "zh-CN-XiaoxiaoNeural",
+    "timeline": [
+      {
+        "kind": "voice-start",
+        "type": "opening",
+        "at": 1557.0999999996275,
+        "bedPlaying": true
+      },
+      {
+        "kind": "voice-start",
+        "type": "opening",
+        "at": 1810.7999999988824,
+        "bedPlaying": true
+      },
+      {
+        "kind": "voice-end",
+        "type": "opening",
+        "at": 2693.5999999996275
+      },
+      {
+        "kind": "voice-start",
+        "type": "segue",
+        "at": 2720.2999999988824,
+        "bedPlaying": true
+      },
+      {
+        "kind": "voice-end",
+        "type": "segue",
+        "at": 3624.7999999988824
+      },
+      {
+        "kind": "song-start",
+        "songId": "1001",
+        "at": 3634,
+        "speech": false
+      },
+      {
+        "kind": "voice-start",
+        "type": "segue",
+        "at": 7633.5999999996275,
+        "bedPlaying": true
+      },
+      {
+        "kind": "voice-end",
+        "type": "segue",
+        "at": 8543.89999999851
+      },
+      {
+        "kind": "song-start",
+        "songId": "1002",
+        "at": 8548.299999998882,
+        "speech": false
+      },
+      {
+        "kind": "song-start",
+        "songId": "1002",
+        "at": 9784.89999999851,
+        "speech": false
+      },
+      {
+        "kind": "voice-start",
+        "type": "segue",
+        "at": 10440.5,
+        "bedPlaying": true
+      },
+      {
+        "kind": "voice-end",
+        "type": "segue",
+        "at": 11345.599999999627
+      },
+      {
+        "kind": "song-start",
+        "songId": "1003",
+        "at": 11357.099999999627,
+        "speech": false
+      },
+      {
+        "kind": "voice-start",
+        "type": "joke",
+        "at": 15358.599999999627,
+        "bedPlaying": true
+      },
+      {
+        "kind": "voice-end",
+        "type": "joke",
+        "at": 16263.39999999851
+      },
+      {
+        "kind": "song-start",
+        "songId": "1004",
+        "at": 16265.39999999851,
+        "speech": false
+      },
+      {
+        "kind": "voice-start",
+        "type": "segue",
+        "at": 20047.89999999851,
+        "bedPlaying": true
+      },
+      {
+        "kind": "voice-end",
+        "type": "segue",
+        "at": 20953.39999999851
+      },
+      {
+        "kind": "song-start",
+        "songId": "1005",
+        "at": 20958.799999998882,
+        "speech": false
+      },
+      {
+        "kind": "voice-start",
+        "type": "segue",
+        "at": 24942.39999999851,
+        "bedPlaying": true
+      }
+    ]
   },
-  "finishedAt": "2026-11-09T06:36:10.225Z",
+  "duck": {
+    "musicGain": 0.23309075832366943,
+    "voiceGain": 1,
+    "bedGain": 0.2805476486682892
+  },
+  "finishedAt": "2026-11-09T09:04:13.188Z",
   "success": true
 }

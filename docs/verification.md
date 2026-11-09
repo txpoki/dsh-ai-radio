@@ -2,6 +2,19 @@
 
 Checked on **2026-11-09**, Asia/Shanghai. These results distinguish real public-service probes from simulated account/audio tests.
 
+## 0.2.0 programme and voice revision
+
+- **45 unit/API/lifecycle tests passed**. The whole-programme regression researches and scripts all 64 fixture songs before issuing playback batches, preserves their planned order, executes an AI follow-up query, and exports a full script. Cancellation and model failure cannot publish a partial programme as ready.
+- Real installed Chrome, 1280×900 desktop and 430×932 mobile: **12 browser checks passed**, **24 actual HTMLAudio track starts**, **25 completed synthetic narration clips**, crossing a full episode boundary. AudioContext stayed running; no browser JavaScript errors. Stopping during delayed TTS preparation resolved immediately, and the delayed result could not restart the radio.
+- The browser observed a greeting and first-song introduction completing over the station BGM before the first track started. Pause/resume during the greeting froze both voice and bed. During a later real audio narration, the music-bus gain measured **0.233** while voice gain was **1.0**, then music recovered smoothly above 0.8.
+- Navigation contains exactly Listening / Playlists / Settings; no news or history page. The DSH font variable, voice changes, stall recovery, exclusive tab ownership and reload without autoplay were checked. The browser fixture uses generated WAV audio and demo metadata, not the listener's real music or a live model.
+- **Real Edge neural speech probe succeeded**: zh-CN-XiaoyiNeural, 1.02×, +5Hz; returned 122,400 bytes of MP3 in about 2.5 seconds. Initial direct access timed out because Node did not inherit the active Windows system proxy; read-only proxy discovery fixed routing. One service response was HTTP 429; a later request succeeded. Synthesis is serialized and rate-limit failures have a cooldown. No system proxy setting was changed.
+- Fish request model/reference/prosody and fallback behavior were verified with mock transport. The Blue Dafeiyu voice itself was not synthesized because no personal Fish key was supplied. No paid model-generation request was made for these fixture tests.
+- The new default station bed is an original 48-second PCM composition; its format, duration and soft peak level were checked.
+- Installed 0.2.0 through the actual DSH Desktop 2.0.18 plugin manager and restarted gracefully. The live bootstrap returned version 0.2.0, retaining the existing signed-in music account and 30-song library. Set the default to Edge Xiaoyi as requested; the installed plugin's real speech endpoint generated 135,936 bytes of MP3 and served it with HTTP 200. Fish voice configuration remains available; no personal login material is included in this record.
+
+The following sections preserve the earlier release observations; their counts and dates describe those earlier runs.
+
 ## 0.1.1 activation regression
 
 - **30 tests passed**, including a lifecycle test executed against the Cordis **4.0.5** bundled in the installed **DSH Desktop 2.0.18**, and three React rendering regressions for the closed overlay during loading/failure and explicit reconnection.

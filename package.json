@@ -1,6 +1,6 @@
 {
   "name": "dsh-ai-radio",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "A continuous personal AI radio for DeepSeek Harness: NetEase playlists, contextual DJs, fresh news and crossfade.",
   "type": "module",
   "main": "lib/index.js",
@@ -61,5 +61,8 @@
     "playwright": "^1.56.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
+  },
+  "dependencies": {
+    "node-edge-tts": "1.2.12"
   }
 }
