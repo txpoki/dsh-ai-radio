@@ -7,6 +7,7 @@ Checked on **2026-11-09**, Asia/Shanghai. These results distinguish real public-
 - **30 tests passed**, including a lifecycle test executed against the Cordis **4.0.5** bundled in the installed **DSH Desktop 2.0.18**, and three React rendering regressions for the closed overlay during loading/failure and explicit reconnection.
 - Verified that the radio waits for the actual `webServer`, `llm`, `tools`, and `systemPrompt` services, enters the active state when they exist, and disposes its routes and tool cleanly.
 - Fixed the 0.1.0 declaration that was incorrectly interpreted as services named `required` and `optional`. Earlier hand-written lifecycle mocks did not exercise this loader behavior.
+- Installed the 0.1.1 archive through the actual DSH Desktop plugin manager. Enabling immediately after replacing 0.1.0 still reused the old host module; a complete, graceful app restart resolved it. The restarted profile inventory reported `enabled: true`, `fiberPhase: active`; `GET /dsh-ai-radio/bootstrap` returned HTTP 200 and version 0.1.1, and `/models` returned two providers with two models. No paid model generation or personal music login was performed.
 - The initial browser endurance and public-service observations below apply to the unchanged player/context pipeline; this patch changes host dependency declaration and version metadata.
 
 ## Automated checks
@@ -40,6 +41,5 @@ See [external-smoke.json](external-smoke.json). Weather values and news counts a
 - Reading the user's private/account playlists and weekly history against a live signed-in account.
 - Playback entitlement for the user's actual VIP/digital-album tracks.
 - Paid DSH model generation or external OpenAI/Fish voice generation with the user's credentials.
-- Mounting in the user's currently running DSH Desktop profile. Host effect registration, stream request shape and browser ModuleLoader are covered by contract tests; the standalone browser fixture exercises the actual UI and engine.
 
 These flows are implemented, with mocked upstream coverage. First-use configuration is documented in the README; no login Cookie or paid API Key was requested or embedded in the repository.

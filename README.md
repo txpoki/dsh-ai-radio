@@ -2,7 +2,7 @@
 
 一个运行在 **DeepSeek Harness / DSH Desktop** 里的私人 AI 电台。登录网易云、选择歌单、按下播放，主持人会根据音乐、天气、时间、收听历史和当天新闻持续编排节目。
 
-**0.1.1 修复**：解决启用时出现 `pending (waiting for services: required, optional)` 的问题。已使用 DSH Desktop 2.0.18 自带的 Cordis 4.0.5 验证实际加载流程。已安装 0.1.0 的用户请更新插件后重新启用。
+**0.1.1 修复**：解决启用时出现 `pending (waiting for services: required, optional)` 的问题。已在 DSH Desktop 2.0.18 中实际安装并确认插件状态为 `active`。已安装 0.1.0 的用户请更新插件后**完整退出并重新启动 DSH Desktop**；仅开关插件或刷新界面不能清除后台进程缓存的旧模块。
 
 ![Aurora FM](docs/screenshot-desktop.png)
 
@@ -21,22 +21,28 @@
 
 需要 Node.js 20.19+，以及支持 `webServer`、UI slots 与 `llm.stream` 的 DSH Web / Desktop。
 
-### 本地目录安装（推荐）
+### DSH Desktop 安装（推荐）
+
+在 DSH Desktop 中打开 **插件 → 添加插件**，输入 `github:txpoki/dsh-ai-radio#main`，或本地安装包 `dsh-ai-radio-0.1.1.tgz` 的完整路径。安装后启用；升级已有版本后完整退出并重新启动 DSH Desktop。
+
+`desktop` profile 由 Electron 应用管理，请使用应用自带的插件管理器；命令行会拒绝直接修改它。
+
+### Web / 命令行 profile：本地目录安装
 
 ```powershell
 git clone https://github.com/txpoki/dsh-ai-radio.git
 cd dsh-ai-radio
 pnpm install
 pnpm build
-dsh plugin --profile desktop add link:C:/完整路径/dsh-ai-radio
+dsh plugin --profile web add link:C:/完整路径/dsh-ai-radio
 ```
 
-Web 版将 `desktop` 改成你的实际 profile（例如 `web`）。重启 DSH 后，聊天输入区下方会出现 Aurora FM 播放条。
+将 `web` 改成你的实际命令行 profile。重启 DSH 后，聊天输入区下方会出现 Aurora FM 播放条。
 
-### 从 GitHub 仓库安装
+### Web / 命令行 profile：从 GitHub 仓库安装
 
 ```sh
-dsh plugin --profile desktop add "github:txpoki/dsh-ai-radio#main"
+dsh plugin --profile web add "github:txpoki/dsh-ai-radio#main"
 ```
 
 仓库现已公开；从 GitHub 安装需要本机已安装 Git 并加入 PATH。构建后的 `lib/client.js` 已提交，不需要用户在安装后额外编译。升级时按 DSH 自身的插件更新流程操作。
