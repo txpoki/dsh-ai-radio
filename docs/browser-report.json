@@ -1,5 +1,5 @@
 {
-  "startedAt": "2026-11-09T14:40:03.041Z",
+  "startedAt": "2026-11-10T05:34:28.582Z",
   "checks": [
     "Three compact tabs, no news/history page and native DSH font variable",
     "Playlist start prepares the whole programme; greeting and first intro play over BGM before the first song",
@@ -26,124 +26,124 @@
       {
         "kind": "voice-start",
         "type": "opening",
-        "at": 4551.39999999851,
+        "at": 4770,
         "bedPlaying": true
       },
       {
         "kind": "voice-start",
         "type": "opening",
-        "at": 4823.60000000149,
+        "at": 5025.29999999702,
         "bedPlaying": true
       },
       {
         "kind": "voice-end",
         "type": "opening",
-        "at": 5709.199999999255
+        "at": 5911.5
       },
       {
         "kind": "voice-start",
         "type": "segue",
-        "at": 6955.300000000745,
+        "at": 7125,
         "bedPlaying": true
       },
       {
         "kind": "voice-end",
         "type": "segue",
-        "at": 7858.89999999851
+        "at": 8031.79999999702
       },
       {
         "kind": "song-start",
         "songId": "1001",
-        "at": 7865.10000000149,
+        "at": 8034.4000000059605,
         "speech": false
       },
       {
         "kind": "song-start",
         "songId": "1002",
-        "at": 11603.60000000149,
+        "at": 11779.70000000298,
         "speech": false
       },
       {
         "kind": "voice-start",
         "type": "segue",
-        "at": 11817.699999999255,
+        "at": 11976.40000000596,
         "bedPlaying": false
       },
       {
         "kind": "voice-end",
         "type": "segue",
-        "at": 12719.5
+        "at": 12881.60000000894
       },
       {
         "kind": "song-start",
         "songId": "1002",
-        "at": 14066,
+        "at": 14163.20000000298,
         "speech": false
       },
       {
         "kind": "song-start",
         "songId": "1003",
-        "at": 15637.10000000149,
+        "at": 14545,
         "speech": false
       },
       {
         "kind": "song-start",
         "songId": "1004",
-        "at": 15702.89999999851,
+        "at": 18296.5,
         "speech": false
       },
       {
         "kind": "voice-start",
         "type": "joke",
-        "at": 16934.199999999255,
+        "at": 18483.10000000894,
         "bedPlaying": false
       },
       {
         "kind": "voice-end",
         "type": "joke",
-        "at": 17838.800000000745
+        "at": 19391.5
       },
       {
         "kind": "song-start",
         "songId": "1005",
-        "at": 19467.10000000149,
+        "at": 22051.70000000298,
         "speech": false
       },
       {
         "kind": "voice-start",
         "type": "segue",
-        "at": 19660.10000000149,
+        "at": 22239.10000000894,
         "bedPlaying": false
       },
       {
         "kind": "voice-end",
         "type": "segue",
-        "at": 20570.300000000745
+        "at": 23141.60000000894
       },
       {
         "kind": "song-start",
         "songId": "1006",
-        "at": 23208.10000000149,
+        "at": 25797.5,
         "speech": false
       },
       {
         "kind": "voice-start",
         "type": "segue",
-        "at": 23400.800000000745,
+        "at": 25997.29999999702,
         "bedPlaying": false
       },
       {
         "kind": "voice-end",
         "type": "segue",
-        "at": 24308.89999999851
+        "at": 26901
       }
     ]
   },
   "duck": {
-    "musicGain": 0.1405337154865265,
+    "musicGain": 0.14056040346622467,
     "voiceGain": 1,
     "bedGain": 0
   },
-  "finishedAt": "2026-11-09T14:41:40.520Z",
+  "finishedAt": "2026-11-10T05:36:08.253Z",
   "success": true
 }

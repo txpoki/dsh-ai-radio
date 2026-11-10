@@ -138,6 +138,7 @@ function Field({ label, help, children }) {
 }
 function SettingsPage({ controller, state: s }) {
   const [form, setForm] = useState(() => structuredClone(s.settings)), [busy, setBusy] = useState(false), [saved, setSaved] = useState(false), [voices, setVoices] = useState([]);
+  const [sample, setSample] = useState(null), [previewing, setPreviewing] = useState(false);
   const [feeds, setFeeds] = useState(s.settings.customFeeds.map(x => x.title + '|' + x.url).join('\n'));
   useEffect(() => {
     const update = () => setVoices(window.speechSynthesis?.getVoices() || []); update();
@@ -175,7 +176,9 @@ function SettingsPage({ controller, state: s }) {
       {[['duckVolume', '口播时音乐保留', .03, .5], ['speechVolume', '主持人音量', 0, 1], ['bedVolume', '开场背景音乐音量', 0, .65]].map(([key, label, min, max]) => <Field key={key} label={label + ' · ' + Math.round(form[key] * 100) + '%'}><input aria-label={label} type="range" min={min} max={max} step=".01" value={form[key]} onChange={e => change(key, Number(e.target.value))}/></Field>)}
       <Field label={'尾奏衔接 · ' + form.crossfadeSeconds + ' 秒'}><input type="range" min="0" max="12" step="1" value={form.crossfadeSeconds} onChange={e => change('crossfadeSeconds', Number(e.target.value))}/></Field>
     </div></section>
-    <details className="ar-settings-section ar-details"><summary>主持人设</summary><p className="ar-help">默认是元气、懂音乐的鲸鱼少女小鲸。整期节目都会遵循这份人设。</p><textarea className="ar-persona" aria-label="主持人设提示词" value={form.persona || WHALE_PERSONA} onChange={e => change('persona', e.target.value)}/></details>
+    <details className="ar-settings-section ar-details"><summary>主持人设</summary><p className="ar-help">元气、懂音乐的小鲸：聊点小事，偶尔讲个查证过的故事，也给音乐留白。</p><textarea className="ar-persona" aria-label="主持人设提示词" value={form.persona || WHALE_PERSONA} onChange={e => change('persona', e.target.value)}/><p className="ar-help">用已载入的前三首和当前保存的主持模型试写，先看看语气。</p><Button disabled={busy || !s.libraryCount} onClick={() => run(async () => { setPreviewing(true); setSample(null); try { setSample(await api('/programme/preview', { persona: form.persona || '' }, 210000)); } finally { setPreviewing(false); } })}>{previewing ? '小鲸正在试写…' : '预览三段口播'}</Button>
+      {sample && <div className="ar-script-preview" aria-label="主持口播预览"><p><strong>开场</strong></p><p>{sample.opening}</p>{sample.samples.map((item,i)=><React.Fragment key={i}><p><strong>{i+1}. {item.title}</strong></p><p>{item.intro}</p></React.Fragment>)}</div>}
+    </details>
     <details className="ar-settings-section ar-details"><summary>节目内容与天气</summary><div className="ar-form-grid">
       <Field label="天气城市"><input value={form.city} onChange={e => change('city', e.target.value)}/></Field><Field label="时区"><input value={form.timezone} onChange={e => change('timezone', e.target.value)}/></Field>
       <Field label="关注话题"><input value={form.interests} onChange={e => change('interests', e.target.value)}/></Field><Field label="新闻间隔（分钟）"><input type="number" min="5" max="120" value={form.newsMinutes} onChange={e => change('newsMinutes', Number(e.target.value))}/></Field>

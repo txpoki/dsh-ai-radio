@@ -1,0 +1,7 @@
+{
+  "checks": [
+    "Settings previews a greeting and three spoken links without starting or replacing the programme",
+    "The original conversational preview fits the compact mobile Settings layout"
+  ],
+  "success": true
+}

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.5
+
+- Rewrite the whale-girl editorial prompts around natural conversation, concrete observations, concise factual anecdotes and callbacks, instead of recurring lyric interpretation.
+- Enforce brief links throughout the episode and bound long-story frequency. Keep creative chat separate from sourced artist/song claims so missing research no longer erases ordinary conversation.
+- Prefer interview/recording-story searches, carry recent links across chapters, and invalidate old scripts when the editorial contract changes.
+- Add a three-link Settings preview using the selected library and saved model. It performs no speech synthesis and leaves the current episode, playback cursor and draft intact.
+- Document broadcaster references and add provenance, pacing, preview isolation and browser-layout checks.
+
 ## 0.2.4
 
 - Never substitute a different voice when the selected Fish or compatible speech service is missing credentials or fails. Surface configuration, authentication, quota and voice errors while music continues.

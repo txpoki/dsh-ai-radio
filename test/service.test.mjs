@@ -18,6 +18,10 @@ test('cross-origin mutations and non-JSON forms are rejected',async()=>fixture(a
   assert.equal((await post(base,'/settings',{city:'南京'},{Origin:'https://evil.example'})).status,403);
   assert.equal((await fetch(base+'/settings',{method:'POST',headers:{'Content-Type':'text/plain'},body:'{}'})).status,415);
 }));
+test('editorial preview returns three samples without starting or replacing an episode',async()=>fixture(async({base,service})=>{
+  const result=await(await post(base,'/programme/preview',{persona:'自然聊天'})).json();
+  assert.equal(result.samples.length,3);assert.ok(result.opening);assert.equal(service.planner.current,null);assert.equal(service.planner.cursor,0);assert.equal(service.store.state.spoken.length,0);
+}));
 test('daily recommendation metadata is read-only and can be explicitly loaded as the radio library',async()=>fixture(async({base,service})=>{
   const before=service.store.state.library.length;
   const daily=await(await fetch(base+'/recommendations/daily')).json();

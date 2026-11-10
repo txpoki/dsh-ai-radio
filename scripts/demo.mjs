@@ -16,7 +16,7 @@ export function attachDemo(service, { seconds = 35, speechSeconds = Number(proce
   service.planner.research.searchImpl=async()=>[{title:'本地合成音乐演示资料',url:'https://example.com/radio-demo',summary:'仅供测试的歌曲资料，不对应真实歌手、歌曲或新闻。'}];
   service.planner.generate=async(_cfg,_llm,_prompt,payload)=>{
     if(payload.stage==='director')return JSON.stringify({title:'小鲸的今日电台 · 演示',editorialNotes:'本地合成音频用于验证整期策划、开场和口播衔接。',arc:[{title:'慢慢出发',purpose:'从轻柔的开场逐渐展开。'},{title:'沿途风景',purpose:'保持流动感。'},{title:'晚风来信',purpose:'舒缓收束。'}],order:payload.songs.map(x=>x.id),researchQueries:[]});
-    return JSON.stringify({opening:'听众朋友们，大家好！我是小鲸。这里是电台本地演示，音乐和语音均为合成测试音频。',songs:payload.songs.map((x,i)=>({id:x.id,intro:'刚刚的旋律先收进耳朵，接下来一起听《'+x.title+'》。这首也来自今天的演示歌单。',sourceIds:x.sources.slice(0,1).map(s=>s.id),joke:x.humorSlot?'小鲸今天准备了好多歌，连海浪都排着队来听啦。':''}))});
+    return JSON.stringify({opening:'听众朋友们，大家好！我是小鲸。这里是电台本地演示，音乐和语音均为合成测试音频。',songs:payload.songs.map((x,i)=>({id:x.id,hostTalk:x.linkPlan?.mode==='brief'?'':'有时候选歌选了半天，才发现，最先想听的那首还在排队。这就轮到它了。',songFact:'',sourceIds:[],joke:x.humorSlot?'小鲸今天准备了好多歌，连海浪都排着队来听啦。':''}))});
   };
   service.speech.prepare=async()=>{const id=randomUUID();service.speech.audio.set(id,{bytes:wav(speechSeconds,440),type:'audio/wav'});return{provider:'demo',url:'/dsh-ai-radio/speech/audio/'+id,duration:speechSeconds,measured:true};};
   service.music.loadLibrary=async(ids)=>{service.store.state.settings.selectedPlaylistIds=ids;service.store.state.library=songs;service.store.state.librarySource={type:'playlists'};return{count:songs.length,failures:[]};};

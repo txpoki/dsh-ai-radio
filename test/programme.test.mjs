@@ -50,12 +50,27 @@ test('the entire playlist is researched and scripted before any batch is issued'
   assert.match(first.opening.text, /小鲸/);
   assert.match(planner.article(), /编导说明/);
   assert.match(planner.article(), /64\. 歌曲1/);
-  assert.ok(planner.current.segments.every((x,i) => x.cue.placement === (i ? 'overlap-tail-and-head' : 'before-track') && x.speech.sourceIds.length));
+  assert.ok(planner.current.segments.every((x,i) => x.cue.placement === (i ? 'overlap-tail-and-head' : 'before-track')));
+  assert.ok(planner.current.segments.some(x => x.speech.sourceIds.length));
 });
 test('planning failure is explicit and never masquerades as a completed AI programme', async () => {
   const { planner } = fixture(5, { generate: async () => { throw new Error('model offline'); } });
   planner.start(); await planner.preparing;
   assert.equal(planner.job.status, 'failed'); assert.equal(planner.current, null); assert.match(planner.job.error, /offline/);
+});
+test('a three-song editorial preview preserves the full programme, playback cursor and draft',async()=>{
+  const {planner,store,calls}=fixture(5);planner.start();await planner.preparing;
+  planner.cursor=2;const originalId=planner.current.id;store.state.programmeDraft={keep:true};
+  const beforeCalls=calls.length,beforeSpoken=store.state.spoken.length;
+  const result=await planner.preview({persona:'说得轻快一点'});
+  assert.equal(result.samples.length,3);assert.equal(planner.current.id,originalId);assert.equal(planner.cursor,2);assert.deepEqual(store.state.programmeDraft,{keep:true});
+  assert.equal(store.state.spoken.length,beforeSpoken);assert.equal(calls.length,beforeCalls+1);assert.equal(calls.at(-1).payload.songs.length,3);
+  assert.equal(result.samples[2].deliveryMode,'brief');
+});
+test('a truncated editorial preview retries with more output budget and keeps the episode untouched',async()=>{
+  const {planner}=fixture(3);const original=planner.generate,budgets=[];
+  planner.generate=async(...args)=>{budgets.push(args[5].maxTokens);if(budgets.length===1)throw Object.assign(new Error('limit'),{code:'OUTPUT_LIMIT'});return original(...args);};
+  const preview=await planner.preview();assert.equal(preview.samples.length,3);assert.deepEqual(budgets,[8192,16384]);assert.equal(planner.current,null);
 });
 test('an existing script and a changed voice are recalibrated without repeating editorial generation', async () => {
   const { planner, store, calls } = fixture(3);
@@ -96,7 +111,7 @@ test('missing research cannot turn unsupported model stories into on-air facts',
   planner.research.searchImpl = async () => [];
   planner.start(); await planner.preparing;
   assert.equal(planner.current.missingResearch, 2);
-  assert.ok(planner.current.segments.every(x => x.speech.sourceIds.length === 0 && x.speech.intro.includes('这首收录在《专辑》')));
+  assert.ok(planner.current.segments.every(x => x.speech.sourceIds.length === 0 && x.speech.intro.includes(x.track.title) && !x.speech.intro.includes('创作于')));
 });
 test('news is removed from a reused script after the date changes', async () => {
   const { planner } = fixture(10);

@@ -1,6 +1,15 @@
 # Verification record
 
-Checked on **2026-11-09**, Asia/Shanghai. These results distinguish real public-service probes from simulated account/audio tests.
+Latest checks: **2026-11-10**, Asia/Shanghai. Earlier release sections retain their original observations. These records distinguish real public-service probes from simulated account/audio tests.
+
+## 0.2.5 conversational hosting
+
+- **76 unit/API/lifecycle tests passed**. New checks cover brief-link pacing, bounded story frequency, preservation of everyday chat without music sources, rejection of misplaced artist/catalogue claims, preview retry budgets and supported reasoning selection, and a three-song preview that leaves the full programme, cursor and draft intact.
+- **Two editorial-preview browser checks passed**: Settings displayed a greeting and three spoken samples while playback stayed idle, and the preview fitted the 430px mobile layout. The existing 25 browser checks for continuous music, startup, daily recommendations and selected voice identity also passed. The fixtures use synthetic audio and controlled model replies; they do not measure the artistic quality of a live model.
+- The editorial design references [NPR's writing-for-the-ear advice](https://www.gpb.org/news/2023/02/17/need-write-toast-or-script-here-are-7-tips-let-your-voice-shine-through), the published introduction to [RTHK Music Lover](https://www.rthk.hk/radio/radio2/programme/musiclover/episode/1126405), and [a KEXP song-story example](https://www.kexp.org/read/2017/06/21/song-of-the-gay-courtney-barnett-how-to-boil-an-egg/). These informed general techniques; the Chinese few-shot examples in the prompt are original.
+- Installed the reviewed 0.2.5 build through the native Desktop plugin manager and restarted gracefully. Installed prompt, editorial and model-call source hashes matched the reviewed checkout; the existing free Xiaoyi voice remained selected.
+- Ran live previews through the configured DSH model. The first review still contained catalogue-style copy, so the prompt was tightened and a backstop added for artist facts misplaced in chat. A later preview hit its output budget; supported light/off reasoning selection and an increased-budget retry were added. The final live preview succeeded on attempt one with `reasoningEffort: off`, zero reasoning characters and three distinct link lengths, in 3.1 seconds with the context/research caches warm. The episode ID and cursor remained unchanged. No listener song names, account data or private preview text is included in the repository. Artistic quality remains a human judgment rather than a passing unit-test result.
+
 
 ## 0.2.4 voice identity and configuration
 

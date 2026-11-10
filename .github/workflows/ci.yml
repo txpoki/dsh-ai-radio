@@ -26,6 +26,7 @@ jobs:
       - run: pnpm test:mix
       - run: pnpm test:daily
       - run: pnpm test:voice
+      - run: pnpm test:editorial
       - uses: actions/upload-artifact@v4
         if: always()
         with:
